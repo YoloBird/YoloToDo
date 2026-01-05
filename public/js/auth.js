@@ -11,7 +11,7 @@ const API_URL = '/api';
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const email = document.getElementById('loginEmail').value.trim();
+    const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
     const errorDiv = document.getElementById('loginError');
 
@@ -20,8 +20,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     errorDiv.classList.remove('show');
 
     // 验证输入
-    if (!email || !password) {
-        errorDiv.textContent = '请填写账号和密码';
+    if (!username || !password) {
+        errorDiv.textContent = '请填写用户名和密码';
         errorDiv.classList.add('show');
         return;
     }
@@ -38,7 +38,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ username, password })
         });
 
         const data = await response.json();

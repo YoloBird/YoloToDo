@@ -35,7 +35,7 @@ POST /api/auth/login
 **请求体：**
 ```json
 {
-  "email": "admin@todo.local",
+  "username": "admin",
   "password": "admin123"
 }
 ```
@@ -47,6 +47,7 @@ POST /api/auth/login
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": "admin",
+    "username": "admin",
     "email": "admin@todo.local",
     "telegramChatId": null
   }
@@ -57,8 +58,8 @@ POST /api/auth/login
 
 | 状态码 | 说明 |
 |--------|------|
-| 400 | 邮箱或密码为空 |
-| 401 | 邮箱或密码错误 |
+| 400 | 用户名或密码为空 |
+| 401 | 用户名或密码错误 |
 | 429 | 登录失败次数过多，请 5 分钟后重试 |
 
 ---
@@ -99,7 +100,8 @@ PUT /api/auth/settings
 **请求体：**
 ```json
 {
-  "telegramChatId": "123456789"
+  "telegramChatId": "123456789",
+  "notificationEmail": "me@example.com"
 }
 ```
 

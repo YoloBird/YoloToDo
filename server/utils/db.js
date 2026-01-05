@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 
 const DATA_DIR = path.join(__dirname, '../data');
 const ADMIN_EMAIL = 'admin@todo.local';
+const ADMIN_USERNAME = 'admin';
 const DEFAULT_ADMIN_PASSWORD = 'admin123';  // 首次登录后请修改
 
 // Ensure data directory exists
@@ -32,6 +33,7 @@ const initDataFiles = async () => {
         const hashedPassword = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
         const adminUser = {
             id: 'admin',
+            username: ADMIN_USERNAME,
             email: ADMIN_EMAIL,
             password: hashedPassword,
             telegramChatId: null,
@@ -77,6 +79,12 @@ const getUsers = () => readData('users.json');
 const getUserByEmail = (email) => {
     const users = getUsers();
     return users.find(u => u.email === email);
+};
+
+// Get user by username
+const getUserByUsername = (username) => {
+    const users = getUsers();
+    return users.find(u => u.username === username);
 };
 
 // Get user by ID
@@ -298,6 +306,7 @@ module.exports = {
     initDataFiles,
     getUsers,
     getUserByEmail,
+    getUserByUsername,
     getUserById,
     addUser,
     updateUserPassword,

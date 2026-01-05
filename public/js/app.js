@@ -34,11 +34,11 @@ const AppState = {
 };
 
 // ==================== Auth Check ====================
-const token = localStorage.getItem('token');
+let token = localStorage.getItem('token');
 const user = JSON.parse(localStorage.getItem('user') || '{}');
 if (!token) window.location.href = '/';
 
-document.getElementById('userEmail').textContent = user.email || '';
+document.getElementById('userEmail').textContent = user.username || user.id || user.email || '';
 
 // ==================== API Helper ====================
 async function apiCall(endpoint, methodOrOptions = {}, data = null) {
@@ -1044,8 +1044,37 @@ document.getElementById('exportIdeasBtn')?.addEventListener('click', async () =>
 });
 
 // ==================== Settings ====================
+const accountUsernameInput = document.getElementById('accountUsername');
+const notificationEmailInput = document.getElementById('notificationEmail');
+const telegramChatInput = document.getElementById('telegramChatId');
+const testEmailBtn = document.getElementById('testEmailBtn');
+const testTelegramBtn = document.getElementById('testTelegramBtn');
+
+function updateUserEmailDisplay() {
+    const emailEl = document.getElementById('userEmail');
+    if (emailEl) emailEl.textContent = user.username || user.id || user.email || '';
+}
+
+function syncAccountUsernameInput() {
+    if (!accountUsernameInput) return;
+    accountUsernameInput.value = user.username || user.id || '';
+}
+
+function syncNotificationEmailInput() {
+    if (!notificationEmailInput) return;
+    notificationEmailInput.value = user.email || '';
+}
+
+function syncTelegramChatIdInput() {
+    if (!telegramChatInput) return;
+    telegramChatInput.value = user.telegramChatId || '';
+}
+
 document.getElementById('settingsBtn').addEventListener('click', () => {
     settingsModal.classList.add('show');
+    syncAccountUsernameInput();
+    syncNotificationEmailInput();
+    syncTelegramChatIdInput();
 });
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -1063,6 +1092,127 @@ document.querySelectorAll('.tab-btn').forEach(tab => {
         document.getElementById(tabName + 'Tab').classList.add('active');
     });
 });
+
+document.getElementById('accountForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = accountUsernameInput ? accountUsernameInput.value.trim() : '';
+
+    if (!username) {
+        showNotification('用户名不能为空', 'error');
+        return;
+    }
+
+    try {
+        const result = await apiCall('/auth/account', {
+            method: 'PUT',
+            body: JSON.stringify({ username })
+        });
+
+        if (result.token) {
+            token = result.token;
+            localStorage.setItem('token', result.token);
+        }
+
+        if (result.user) {
+            user.username = result.user.username || user.username;
+            if (result.user.email !== undefined) {
+                user.email = result.user.email;
+            }
+            if (result.user.telegramChatId !== undefined) {
+                user.telegramChatId = result.user.telegramChatId;
+            }
+            localStorage.setItem('user', JSON.stringify(user));
+        } else {
+            user.username = username;
+            localStorage.setItem('user', JSON.stringify(user));
+        }
+
+        updateUserEmailDisplay();
+        syncAccountUsernameInput();
+        showNotification(result.message || '账户设置已更新', 'success');
+    } catch (error) {
+        const message = error?.data?.error || error?.message || '保存失败';
+        showNotification(message, 'error');
+    }
+});
+
+document.getElementById('notificationForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const telegramChatId = telegramChatInput ? telegramChatInput.value.trim() : '';
+    const notificationEmail = notificationEmailInput ? notificationEmailInput.value.trim() : '';
+
+    try {
+        await apiCall('/auth/settings', {
+            method: 'PUT',
+            body: JSON.stringify({
+                telegramChatId: telegramChatId || null,
+                notificationEmail: notificationEmail || null
+            })
+        });
+        user.telegramChatId = telegramChatId || null;
+        user.email = notificationEmail || null;
+        localStorage.setItem('user', JSON.stringify(user));
+        showNotification('通知设置已保存', 'success');
+    } catch (error) {
+        showNotification(error.error || '保存失败', 'error');
+    }
+});
+
+testEmailBtn?.addEventListener('click', async () => {
+    const notificationEmail = notificationEmailInput ? notificationEmailInput.value.trim() : '';
+    if (!notificationEmail && !user.email) {
+        showNotification('请先填写通知邮箱', 'error');
+        return;
+    }
+
+    const originalHtml = testEmailBtn.innerHTML;
+    testEmailBtn.disabled = true;
+    testEmailBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 发送中...';
+
+    try {
+        const result = await apiCall('/auth/settings/test-email', {
+            method: 'POST',
+            body: JSON.stringify({ notificationEmail })
+        });
+        showNotification(result.message || '测试邮件已发送', 'success');
+    } catch (error) {
+        const message = error?.data?.error || error?.message || '发送失败';
+        showNotification(message, 'error');
+    } finally {
+        testEmailBtn.disabled = false;
+        testEmailBtn.innerHTML = originalHtml;
+    }
+});
+
+testTelegramBtn?.addEventListener('click', async () => {
+    const telegramChatId = telegramChatInput ? telegramChatInput.value.trim() : '';
+    if (!telegramChatId) {
+        showNotification('请先填写 Telegram Chat ID', 'error');
+        return;
+    }
+
+    const originalHtml = testTelegramBtn.innerHTML;
+    testTelegramBtn.disabled = true;
+    testTelegramBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 发送中...';
+
+    try {
+        const result = await apiCall('/auth/settings/test-telegram', {
+            method: 'POST',
+            body: JSON.stringify({ telegramChatId })
+        });
+        showNotification(result.message || '测试消息已发送', 'success');
+    } catch (error) {
+        const message = error?.data?.error || error?.message || '发送失败';
+        showNotification(message, 'error');
+    } finally {
+        testTelegramBtn.disabled = false;
+        testTelegramBtn.innerHTML = originalHtml;
+    }
+});
+
+syncAccountUsernameInput();
+syncNotificationEmailInput();
+syncTelegramChatIdInput();
 
 document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
     e.preventDefault();
