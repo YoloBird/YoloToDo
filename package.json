@@ -1,0 +1,26 @@
+{
+  "name": "todo-list-app",
+  "version": "1.0.0",
+  "description": "A smart todo list application with reminders",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js"
+  },
+  "keywords": ["todo", "notes", "reminders"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.3.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.7",
+    "node-fetch": "^2.7.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

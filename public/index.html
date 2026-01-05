@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 智能便签系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <!-- 头部 -->
+        <div class="auth-header">
+            <i class="fas fa-clipboard-check"></i>
+            <h1>智能便签系统</h1>
+            <p>高效管理您的工作与生活</p>
+        </div>
+
+        <!-- 登录表单 -->
+        <form id="loginForm" class="auth-form active">
+            <div class="form-group">
+                <label for="loginEmail">
+                    <i class="fas fa-envelope"></i>
+                    账号
+                </label>
+                <input
+                    type="email"
+                    id="loginEmail"
+                    required
+                    placeholder="请输入邮箱"
+                    value="admin@todo.local"
+                    autocomplete="username"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="loginPassword">
+                    <i class="fas fa-lock"></i>
+                    密码
+                </label>
+                <input
+                    type="password"
+                    id="loginPassword"
+                    required
+                    placeholder="请输入密码"
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-sign-in-alt"></i>
+                登录
+            </button>
+
+            <div id="loginError" class="error-message"></div>
+        </form>
+
+        <!-- 提示信息 -->
+        <div class="auth-footer">
+            <p class="hint-text">
+                <i class="fas fa-info-circle"></i>
+                默认账号：admin@todo.local<br>
+                默认密码：admin123<br>
+                <small>首次登录后请在设置中修改密码</small>
+            </p>
+            <p class="copyright">© 2025 智能便签系统</p>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+</body>
+</html>
