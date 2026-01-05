@@ -8,6 +8,7 @@ const { initDataFiles, backupData } = require('./utils/db');
 const authRoutes = require('./routes/auth');
 const notesRoutes = require('./routes/notes');
 const ideasRoutes = require('./routes/ideas');
+const aiRoutes = require('./routes/ai');
 const { router: remindersRouter, startReminderScheduler } = require('./routes/reminders');
 
 const app = express();
@@ -27,6 +28,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/ideas', ideasRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/reminders', remindersRouter);
 
 // ==================== 前端页面 ====================

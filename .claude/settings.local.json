@@ -26,7 +26,10 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkB0b2RvLmxvY2FsIiwiaWF0IjoxNzY3NTQyNTUzLCJleHAiOjE3NjgxNDczNTN9.6mvv_dng8oiHGiXsOa4vYVFBIfOCBrbYWAT5_waEHxA\" echo \"=== 创建测试便签验证分类筛选 ===\" echo \"\" echo \"1. 创建工作分类便签...\" curl -s -X POST http://localhost:3000/api/notes  -H \"Content-Type: application/json\"  -H \"Authorization: Bearer $TOKEN\"  -d '{\"\"title\"\":\"\"项目会议\"\",\"\"content\"\":\"\"下周一上午10点讨论新功能\"\",\"\"category\"\":\"\"工作\"\",\"\"priority\"\":\"\"high\"\",\"\"color\"\":\"\"#ef4444\"\",\"\"isImportant\"\":true}')",
       "Bash(__NEW_LINE__ curl -s -X GET http://localhost:3000/api/notes -H \"Authorization: Bearer $TOKEN\")",
       "Bash(python3:*)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkB0b2RvLmxvY2FsIiwiaWF0IjoxNzY3NTQ2NzcwLCJleHAiOjE3NjgxNTE1NzB9.Grzhir4iCrf-MASpUkQFmQqqqkpPQAs0Q-tsuLRsgU4\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkB0b2RvLmxvY2FsIiwiaWF0IjoxNzY3NTQ2NzcwLCJleHAiOjE3NjgxNTE1NzB9.Grzhir4iCrf-MASpUkQFmQqqqkpPQAs0Q-tsuLRsgU4\")",
+      "Bash(export:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)"
     ]
   }
 }

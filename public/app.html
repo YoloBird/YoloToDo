@@ -48,6 +48,14 @@
                     <i class="fas fa-lightbulb"></i>
                     <span>想法记录</span>
                 </a>
+                <a href="#" class="nav-item" data-page="timeline">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>时光看板</span>
+                </a>
+                <a href="#" class="nav-item" data-page="ai">
+                    <i class="fas fa-robot"></i>
+                    <span>AI 助手</span>
+                </a>
             </nav>
 
             <div class="sidebar-footer">
@@ -280,6 +288,410 @@
                             <button id="ideasNextPage" class="btn btn-icon">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Page -->
+            <div class="page" id="timelinePage">
+                <div class="page-container">
+                    <!-- Page Header -->
+                    <header class="page-header">
+                        <div class="page-title">
+                            <h1><i class="fas fa-calendar-alt"></i> 时光看板</h1>
+                            <p class="page-subtitle">回顾过去，规划未来</p>
+                        </div>
+                        <div class="header-stats">
+                            <div class="stat-card">
+                                <div class="stat-icon"><i class="fas fa-fire"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="streakDays">0</span>
+                                    <span class="stat-label">连续活跃</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon success"><i class="fas fa-check-double"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="monthCompleted">0</span>
+                                    <span class="stat-label">本月完成</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon idea"><i class="fas fa-brain"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="monthIdeas">0</span>
+                                    <span class="stat-label">本月想法</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Timeline Content -->
+                    <div class="timeline-content">
+                        <!-- Main Section: Calendar + Day Detail -->
+                        <div class="timeline-main">
+                            <!-- Calendar -->
+                            <div class="calendar-card">
+                                <div class="calendar-header">
+                                    <button class="calendar-nav" id="prevMonth">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <h3 class="calendar-title" id="calendarTitle">2024年1月</h3>
+                                    <button class="calendar-nav" id="nextMonth">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                    <button class="btn btn-text" id="todayBtn">今天</button>
+                                </div>
+                                <div class="calendar-weekdays">
+                                    <span>日</span>
+                                    <span>一</span>
+                                    <span>二</span>
+                                    <span>三</span>
+                                    <span>四</span>
+                                    <span>五</span>
+                                    <span>六</span>
+                                </div>
+                                <div class="calendar-days" id="calendarDays"></div>
+                            </div>
+
+                            <!-- Day Detail -->
+                            <div class="day-detail-card">
+                                <div class="day-detail-header">
+                                    <h3 id="selectedDateTitle">今天</h3>
+                                    <span class="day-detail-date" id="selectedDateFull"></span>
+                                </div>
+                                <div class="day-detail-stats">
+                                    <div class="day-stat">
+                                        <span class="day-stat-value" id="dayNotesCount">0</span>
+                                        <span class="day-stat-label">待办</span>
+                                    </div>
+                                    <div class="day-stat">
+                                        <span class="day-stat-value" id="dayCompletedCount">0</span>
+                                        <span class="day-stat-label">已完成</span>
+                                    </div>
+                                    <div class="day-stat">
+                                        <span class="day-stat-value" id="dayIdeasCount">0</span>
+                                        <span class="day-stat-label">想法</span>
+                                    </div>
+                                </div>
+                                <div class="day-timeline" id="dayTimeline">
+                                    <div class="empty-day">
+                                        <i class="fas fa-calendar-day"></i>
+                                        <p>选择日期查看活动</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Section: Heatmap + Week Summary -->
+                        <div class="timeline-bottom">
+                            <!-- Activity Heatmap -->
+                            <div class="heatmap-card">
+                                <h4><i class="fas fa-fire"></i> 活动热力图</h4>
+                                <p class="heatmap-subtitle">最近20周的活动记录</p>
+                                <div class="heatmap-container" id="heatmapContainer"></div>
+                                <div class="heatmap-legend">
+                                    <span>少</span>
+                                    <div class="heatmap-level level-0"></div>
+                                    <div class="heatmap-level level-1"></div>
+                                    <div class="heatmap-level level-2"></div>
+                                    <div class="heatmap-level level-3"></div>
+                                    <div class="heatmap-level level-4"></div>
+                                    <span>多</span>
+                                </div>
+                            </div>
+
+                            <!-- Week Summary -->
+                            <div class="week-summary-card">
+                                <h4><i class="fas fa-chart-line"></i> 本周概览</h4>
+                                <div class="week-stats">
+                                    <div class="week-stat-item">
+                                        <div class="week-stat-icon"><i class="fas fa-plus-circle"></i></div>
+                                        <div class="week-stat-info">
+                                            <span class="week-stat-value" id="weekCreated">0</span>
+                                            <span class="week-stat-label">新建任务</span>
+                                        </div>
+                                    </div>
+                                    <div class="week-stat-item">
+                                        <div class="week-stat-icon success"><i class="fas fa-check-circle"></i></div>
+                                        <div class="week-stat-info">
+                                            <span class="week-stat-value" id="weekCompleted">0</span>
+                                            <span class="week-stat-label">完成任务</span>
+                                        </div>
+                                    </div>
+                                    <div class="week-stat-item">
+                                        <div class="week-stat-icon idea"><i class="fas fa-lightbulb"></i></div>
+                                        <div class="week-stat-info">
+                                            <span class="week-stat-value" id="weekIdeas">0</span>
+                                            <span class="week-stat-label">记录想法</span>
+                                        </div>
+                                    </div>
+                                    <div class="week-stat-item">
+                                        <div class="week-stat-icon warning"><i class="fas fa-percentage"></i></div>
+                                        <div class="week-stat-info">
+                                            <span class="week-stat-value" id="weekRate">0%</span>
+                                            <span class="week-stat-label">完成率</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="week-chart" id="weekChart"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Page -->
+            <div id="aiPage" class="page">
+                <div class="ai-page-wrapper">
+                    <!-- Mobile Tab Bar -->
+                    <div class="ai-mobile-tabs">
+                        <button class="ai-mobile-tab active" data-tab="chat">
+                            <i class="fas fa-comments"></i>
+                            <span>对话</span>
+                        </button>
+                        <button class="ai-mobile-tab" data-tab="create">
+                            <i class="fas fa-wand-magic-sparkles"></i>
+                            <span>快捷创建</span>
+                        </button>
+                        <button class="ai-mobile-tab" data-tab="settings">
+                            <i class="fas fa-sliders"></i>
+                            <span>设置</span>
+                        </button>
+                    </div>
+
+                    <div class="ai-layout">
+                        <!-- AI Sidebar -->
+                        <div class="ai-sidebar">
+                            <div class="ai-sidebar-header">
+                                <div class="ai-brand">
+                                    <div class="ai-brand-icon">
+                                        <i class="fas fa-robot"></i>
+                                    </div>
+                                    <div class="ai-brand-text">
+                                        <h3>AI 助手</h3>
+                                        <span class="ai-status">
+                                            <i class="fas fa-circle"></i>
+                                            在线
+                                        </span>
+                                    </div>
+                                </div>
+                                <button class="ai-new-chat-btn" id="newChatBtn" title="新建对话">
+                                    <i class="fas fa-plus"></i>
+                                    <span>新对话</span>
+                                </button>
+                            </div>
+                            <div class="ai-conversations" id="aiConversations">
+                                <!-- 对话列表动态生成 -->
+                            </div>
+                            <div class="ai-sidebar-footer">
+                                <button class="ai-tab-btn active" data-tab="chat">
+                                    <i class="fas fa-comments"></i>
+                                    <span>对话</span>
+                                </button>
+                                <button class="ai-tab-btn" data-tab="create">
+                                    <i class="fas fa-wand-magic-sparkles"></i>
+                                    <span>快捷</span>
+                                </button>
+                                <button class="ai-tab-btn" data-tab="settings">
+                                    <i class="fas fa-sliders"></i>
+                                    <span>设置</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- AI Main Content -->
+                        <div class="ai-main">
+                            <!-- Chat Tab -->
+                            <div class="ai-tab-content active" id="aiChatTab">
+                                <div class="ai-chat-header">
+                                    <div class="ai-chat-info">
+                                        <h2 id="currentChatTitle">开始新对话</h2>
+                                        <span class="ai-chat-subtitle">与 AI 助手交流</span>
+                                    </div>
+                                    <div class="ai-chat-actions">
+                                        <button class="ai-action-btn" id="deleteChatBtn" title="删除对话" style="display: none;">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="ai-messages" id="aiMessages">
+                                    <div class="ai-welcome">
+                                        <div class="ai-welcome-avatar">
+                                            <div class="ai-welcome-icon">
+                                                <i class="fas fa-robot"></i>
+                                            </div>
+                                            <div class="ai-welcome-glow"></div>
+                                        </div>
+                                        <h3>你好，我是 AI 助手</h3>
+                                        <p>我可以帮你管理待办事项、规划任务、分析效率趋势，随时向我提问吧</p>
+                                        <div class="ai-suggestions">
+                                            <span class="ai-suggestions-label">快速开始</span>
+                                            <div class="ai-quick-actions">
+                                                <button class="ai-quick-btn" data-prompt="今天我应该做什么？">
+                                                    <i class="fas fa-sun"></i>
+                                                    <span>今日规划</span>
+                                                </button>
+                                                <button class="ai-quick-btn" data-prompt="总结一下我这周的情况">
+                                                    <i class="fas fa-chart-pie"></i>
+                                                    <span>周报总结</span>
+                                                </button>
+                                                <button class="ai-quick-btn" data-prompt="帮我分析一下待办优先级">
+                                                    <i class="fas fa-list-check"></i>
+                                                    <span>优先级分析</span>
+                                                </button>
+                                                <button class="ai-quick-btn" data-prompt="给我一些提高效率的建议">
+                                                    <i class="fas fa-lightbulb"></i>
+                                                    <span>效率建议</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="ai-input-area">
+                                    <div class="ai-input-wrapper">
+                                        <textarea id="aiInput" placeholder="输入消息，按 Enter 发送..." rows="1"></textarea>
+                                        <button class="ai-send-btn" id="aiSendBtn">
+                                            <i class="fas fa-arrow-up"></i>
+                                        </button>
+                                    </div>
+                                    <div class="ai-input-hint">
+                                        <span>按 Shift+Enter 换行</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Create Tab -->
+                            <div class="ai-tab-content" id="aiCreateTab">
+                                <div class="ai-create-container">
+                                    <div class="ai-create-header">
+                                        <div class="ai-create-icon">
+                                            <i class="fas fa-wand-magic-sparkles"></i>
+                                        </div>
+                                        <h2>智能快捷创建</h2>
+                                        <p>用自然语言描述，AI 帮你智能解析并创建任务或想法</p>
+                                    </div>
+
+                                    <div class="ai-create-examples">
+                                        <span class="examples-label">试试这样说</span>
+                                        <div class="example-chips">
+                                            <button class="example-chip" data-example="明天下午3点和李总开会讨论Q2预算，很重要">
+                                                <i class="fas fa-calendar"></i> 明天下午3点开会...
+                                            </button>
+                                            <button class="example-chip" data-example="下周五之前完成项目报告">
+                                                <i class="fas fa-file-alt"></i> 下周五完成报告...
+                                            </button>
+                                            <button class="example-chip" data-example="我有个想法：开发一个自动整理文件的工具">
+                                                <i class="fas fa-lightbulb"></i> 我有个想法...
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="ai-create-input">
+                                        <textarea id="quickCreateInput" placeholder="描述你想创建的任务或想法..." rows="4"></textarea>
+                                        <button class="ai-parse-btn" id="parseBtn">
+                                            <i class="fas fa-wand-magic-sparkles"></i>
+                                            <span>智能解析</span>
+                                        </button>
+                                    </div>
+
+                                    <div class="ai-parse-result" id="parseResult" style="display: none;">
+                                        <div class="parse-result-header">
+                                            <i class="fas fa-check-circle"></i>
+                                            <span>解析完成</span>
+                                        </div>
+                                        <div class="parse-preview">
+                                            <div class="parse-type" id="parseType"></div>
+                                            <div class="parse-fields" id="parseFields"></div>
+                                        </div>
+                                        <div class="parse-actions">
+                                            <button class="btn-cancel" id="cancelParseBtn">
+                                                <i class="fas fa-times"></i>
+                                                取消
+                                            </button>
+                                            <button class="btn-confirm" id="confirmCreateBtn">
+                                                <i class="fas fa-check"></i>
+                                                确认创建
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Settings Tab -->
+                            <div class="ai-tab-content" id="aiSettingsTab">
+                                <div class="ai-settings-container">
+                                    <div class="ai-settings-header">
+                                        <div class="ai-settings-icon">
+                                            <i class="fas fa-sliders"></i>
+                                        </div>
+                                        <h2>AI 服务设置</h2>
+                                        <p>配置 AI 服务的连接参数</p>
+                                    </div>
+
+                                    <div class="settings-card">
+                                        <div class="settings-card-header">
+                                            <i class="fas fa-server"></i>
+                                            <span>API 配置</span>
+                                        </div>
+                                        <div class="settings-form">
+                                            <div class="form-group">
+                                                <label>
+                                                    <i class="fas fa-link"></i>
+                                                    Base URL
+                                                </label>
+                                                <input type="text" id="aiBaseUrl" placeholder="https://api.openai.com/v1">
+                                                <span class="form-hint">API 服务地址</span>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>
+                                                    <i class="fas fa-key"></i>
+                                                    API Key
+                                                </label>
+                                                <div class="input-with-btn">
+                                                    <input type="password" id="aiApiKey" placeholder="sk-xxxx...">
+                                                    <button type="button" class="btn-toggle-key" id="toggleApiKey">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                </div>
+                                                <span class="form-hint">你的 API 密钥</span>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>
+                                                    <i class="fas fa-microchip"></i>
+                                                    模型名称
+                                                </label>
+                                                <input type="text" id="aiModel" placeholder="gpt-4o-mini">
+                                                <span class="form-hint">使用的 AI 模型</span>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="switch-label">
+                                                    <span class="switch-text">
+                                                        <i class="fas fa-power-off"></i>
+                                                        启用 AI 服务
+                                                    </span>
+                                                    <div class="switch-toggle">
+                                                        <input type="checkbox" id="aiEnabled">
+                                                        <span class="switch-slider"></span>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                            <div class="settings-actions">
+                                                <button class="btn-test" id="testConnectionBtn">
+                                                    <i class="fas fa-plug"></i>
+                                                    测试连接
+                                                </button>
+                                                <button class="btn-save" id="saveAiConfigBtn">
+                                                    <i class="fas fa-save"></i>
+                                                    保存配置
+                                                </button>
+                                            </div>
+                                            <div class="connection-status" id="connectionStatus"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -569,9 +981,13 @@
             <i class="fas fa-lightbulb"></i>
             <span>想法</span>
         </a>
-        <a href="#" class="bottom-nav-item" id="bottomSettingsBtn">
-            <i class="fas fa-cog"></i>
-            <span>设置</span>
+        <a href="#" class="bottom-nav-item" data-page="timeline">
+            <i class="fas fa-calendar-alt"></i>
+            <span>时光</span>
+        </a>
+        <a href="#" class="bottom-nav-item" data-page="ai">
+            <i class="fas fa-robot"></i>
+            <span>AI</span>
         </a>
     </nav>
 
