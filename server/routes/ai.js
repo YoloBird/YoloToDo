@@ -316,12 +316,11 @@ router.post('/parse', async (req, res) => {
             return res.status(400).json({ error: 'AI服务未启用' });
         }
 
-        // 获取当前日期信息用于时间解析
-        const now = new Date();
-        const dateInfo = `当前时间: ${now.toISOString()}, 星期${['日', '一', '二', '三', '四', '五', '六'][now.getDay()]}`;
+        // 获取动态生成的解析提示词（包含当前日期信息）
+        const parsePrompt = SYSTEM_PROMPTS.getParsePrompt();
 
         const messages = [
-            { role: 'system', content: SYSTEM_PROMPTS.parse.replace('${new Date().toISOString().split(\'T\')[0]}', now.toISOString().split('T')[0]) + '\n\n' + dateInfo },
+            { role: 'system', content: parsePrompt },
             { role: 'user', content: input }
         ];
 

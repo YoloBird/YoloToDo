@@ -29,7 +29,15 @@
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkB0b2RvLmxvY2FsIiwiaWF0IjoxNzY3NTQ2NzcwLCJleHAiOjE3NjgxNTE1NzB9.Grzhir4iCrf-MASpUkQFmQqqqkpPQAs0Q-tsuLRsgU4\")",
       "Bash(export:*)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: 新增AI助手和时光看板功能 \\(v3.0\\)\n\n新增功能:\n- AI智能助手: 对话管理、自然语言解析、周报生成\n- 时光看板: 日历视图、热力图、效率统计\n- 想法记录模块增强\n\n技术改进:\n- 修复apiCall函数支持多种调用方式\n- 增强错误处理和用户反馈\n- 全新响应式UI设计\n\n文档更新:\n- 重构README.md\n- 新增部署指南 \\(DEPLOYMENT.md\\)\n- 新增API文档 \\(API.md\\)\n- 更新需求文档\n- 清理过时文档\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git config:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(__NEW_LINE__ echo \"=== 测试 AI 解析 API ===\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkB0b2RvLmxvY2FsIiwiaWF0IjoxNzY3NjAxOTMwLCJleHAiOjE3NjgyMDY3MzB9.wlMgZK8TjkcYVr6xYLlJ_34X5qcQjdkGPwyJ5jng_yc\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkB0b2RvLmxvY2FsIiwiaWF0IjoxNzY3NjA0OTIzLCJleHAiOjE3NjgyMDk3MjN9.Nd4YX6hAUtIUqO8NBSLKN7HWcmYQzHUJmpM66PkbNSQ\")"
     ]
   }
 }

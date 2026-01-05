@@ -1913,6 +1913,8 @@ async function parseQuickCreate() {
 // Display parse result
 function displayParseResult(parsed) {
     const resultDiv = document.getElementById('parseResult');
+    const emptyState = document.getElementById('parseEmptyState');
+    const parseContent = document.getElementById('parseContent');
     const typeDiv = document.getElementById('parseType');
     const fieldsDiv = document.getElementById('parseFields');
 
@@ -1949,7 +1951,11 @@ function displayParseResult(parsed) {
     }
 
     fieldsDiv.innerHTML = fieldsHtml;
-    resultDiv.style.display = 'block';
+
+    // Show parse content, hide empty state
+    if (emptyState) emptyState.style.display = 'none';
+    if (parseContent) parseContent.style.display = 'flex';
+    resultDiv.classList.add('has-result');
 }
 
 // Confirm create from parsed data
@@ -1989,6 +1995,76 @@ async function confirmQuickCreate() {
     } catch (error) {
         showNotification(error.message || '创建失败', 'error');
     }
+}
+
+// Direct create - parse and create in one step
+async function directCreate() {
+    const input = document.getElementById('quickCreateInput').value.trim();
+    if (!input) {
+        showNotification('请输入内容', 'warning');
+        return;
+    }
+
+    const directBtn = document.getElementById('directCreateBtn');
+    if (directBtn) {
+        directBtn.disabled = true;
+        directBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>创建中...</span>';
+    }
+
+    try {
+        // Step 1: Parse the input
+        const parseResponse = await apiCall('/ai/parse', 'POST', { input });
+
+        if (!parseResponse.success || !parseResponse.parsed) {
+            showNotification('解析失败，请重试', 'error');
+            return;
+        }
+
+        const parsed = parseResponse.parsed;
+        const data = parsed.data;
+
+        // Step 2: Create the note/idea directly
+        if (parsed.type === 'note') {
+            await apiCall('/notes', 'POST', {
+                title: data.title,
+                content: data.content || '',
+                category: data.category || null,
+                priority: data.priority || 'medium',
+                isImportant: data.isImportant || false,
+                dueDate: data.dueDate || null,
+                reminderDate: data.reminderDate || null,
+                reminderMethods: data.reminderDate ? ['email'] : []
+            });
+            showNotification(`✅ 待办「${data.title}」创建成功`, 'success');
+            loadNotes();
+        } else {
+            await apiCall('/ideas', 'POST', {
+                title: data.title,
+                content: data.content || '',
+                category: data.category || ''
+            });
+            showNotification(`✅ 想法「${data.title}」记录成功`, 'success');
+        }
+
+        // Reset form
+        document.getElementById('quickCreateInput').value = '';
+        document.getElementById('parseResult').style.display = 'none';
+        AIState.parsedData = null;
+
+    } catch (error) {
+        showNotification(error.message || '创建失败', 'error');
+    } finally {
+        if (directBtn) {
+            directBtn.disabled = false;
+            directBtn.innerHTML = '<i class="fas fa-bolt"></i> <span>直接创建</span>';
+        }
+    }
+}
+
+// Check if auto-create mode is enabled
+function isAutoCreateMode() {
+    const toggle = document.getElementById('autoCreateMode');
+    return toggle && toggle.checked;
 }
 
 // Save AI config
@@ -2100,11 +2176,39 @@ document.querySelectorAll('.example-chip').forEach(chip => {
 
 // Quick create
 document.getElementById('parseBtn')?.addEventListener('click', parseQuickCreate);
+document.getElementById('directCreateBtn')?.addEventListener('click', directCreate);
 document.getElementById('cancelParseBtn')?.addEventListener('click', () => {
-    document.getElementById('parseResult').style.display = 'none';
+    // Reset to empty state
+    const emptyState = document.getElementById('parseEmptyState');
+    const parseContent = document.getElementById('parseContent');
+    const resultDiv = document.getElementById('parseResult');
+
+    if (emptyState) emptyState.style.display = 'flex';
+    if (parseContent) parseContent.style.display = 'none';
+    resultDiv.classList.remove('has-result');
     AIState.parsedData = null;
 });
 document.getElementById('confirmCreateBtn')?.addEventListener('click', confirmQuickCreate);
+
+// Auto-create mode: Enter key triggers direct create
+document.getElementById('quickCreateInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && isAutoCreateMode()) {
+        e.preventDefault();
+        directCreate();
+    }
+});
+
+// Save auto-create mode preference to localStorage
+document.getElementById('autoCreateMode')?.addEventListener('change', (e) => {
+    localStorage.setItem('aiAutoCreateMode', e.target.checked);
+});
+
+// Restore auto-create mode preference on page load
+const savedAutoCreateMode = localStorage.getItem('aiAutoCreateMode');
+if (savedAutoCreateMode === 'true') {
+    const toggle = document.getElementById('autoCreateMode');
+    if (toggle) toggle.checked = true;
+}
 
 // Settings
 document.getElementById('saveAiConfigBtn')?.addEventListener('click', saveAIConfig);

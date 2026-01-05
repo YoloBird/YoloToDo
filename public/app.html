@@ -573,47 +573,84 @@
                                         <p>用自然语言描述，AI 帮你智能解析并创建任务或想法</p>
                                     </div>
 
-                                    <div class="ai-create-examples">
-                                        <span class="examples-label">试试这样说</span>
-                                        <div class="example-chips">
-                                            <button class="example-chip" data-example="明天下午3点和李总开会讨论Q2预算，很重要">
-                                                <i class="fas fa-calendar"></i> 明天下午3点开会...
-                                            </button>
-                                            <button class="example-chip" data-example="下周五之前完成项目报告">
-                                                <i class="fas fa-file-alt"></i> 下周五完成报告...
-                                            </button>
-                                            <button class="example-chip" data-example="我有个想法：开发一个自动整理文件的工具">
-                                                <i class="fas fa-lightbulb"></i> 我有个想法...
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <div class="ai-create-content">
+                                        <div class="ai-create-card">
+                                            <div class="ai-create-examples">
+                                                <span class="examples-label">试试这样说</span>
+                                                <div class="example-chips">
+                                                    <button class="example-chip" data-example="明天下午3点和李总开会讨论Q2预算，很重要">
+                                                        <i class="fas fa-calendar"></i> 明天下午3点开会...
+                                                    </button>
+                                                    <button class="example-chip" data-example="下周五之前完成项目报告">
+                                                        <i class="fas fa-file-alt"></i> 下周五完成报告
+                                                    </button>
+                                                    <button class="example-chip" data-example="我有个想法：开发一个自动整理文件的工具">
+                                                        <i class="fas fa-lightbulb"></i> 记录一个想法...
+                                                    </button>
+                                                    <button class="example-chip" data-example="每天早上9点提醒我做晨间冥想">
+                                                        <i class="fas fa-bell"></i> 每日提醒事项
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                                    <div class="ai-create-input">
-                                        <textarea id="quickCreateInput" placeholder="描述你想创建的任务或想法..." rows="4"></textarea>
-                                        <button class="ai-parse-btn" id="parseBtn">
-                                            <i class="fas fa-wand-magic-sparkles"></i>
-                                            <span>智能解析</span>
-                                        </button>
-                                    </div>
+                                            <div class="ai-create-mode">
+                                                <label class="toggle-switch">
+                                                    <input type="checkbox" id="autoCreateMode">
+                                                    <span class="toggle-slider"></span>
+                                                </label>
+                                                <span class="mode-label">自动创建模式</span>
+                                                <span class="mode-desc">开启后按 Enter 直接解析并创建，无需确认</span>
+                                            </div>
 
-                                    <div class="ai-parse-result" id="parseResult" style="display: none;">
-                                        <div class="parse-result-header">
-                                            <i class="fas fa-check-circle"></i>
-                                            <span>解析完成</span>
-                                        </div>
-                                        <div class="parse-preview">
-                                            <div class="parse-type" id="parseType"></div>
-                                            <div class="parse-fields" id="parseFields"></div>
-                                        </div>
-                                        <div class="parse-actions">
-                                            <button class="btn-cancel" id="cancelParseBtn">
-                                                <i class="fas fa-times"></i>
-                                                取消
-                                            </button>
-                                            <button class="btn-confirm" id="confirmCreateBtn">
-                                                <i class="fas fa-check"></i>
-                                                确认创建
-                                            </button>
+                                            <div class="ai-create-input-section">
+                                                <div class="ai-input-wrapper-create">
+                                                    <label><i class="fas fa-pen"></i> 输入描述</label>
+                                                    <div class="ai-create-input">
+                                                        <textarea id="quickCreateInput" placeholder="描述你想创建的任务或想法...&#10;&#10;例如：&#10;• 明天下午3点开会，很重要&#10;• 周末去超市买菜&#10;• 我有个想法：做一个新项目" rows="6"></textarea>
+                                                        <div class="ai-create-buttons">
+                                                            <button class="ai-parse-btn" id="parseBtn">
+                                                                <i class="fas fa-eye"></i>
+                                                                <span>预览解析</span>
+                                                            </button>
+                                                            <button class="ai-create-btn" id="directCreateBtn">
+                                                                <i class="fas fa-bolt"></i>
+                                                                <span>直接创建</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="ai-input-wrapper-create">
+                                                    <label><i class="fas fa-sparkles"></i> 解析预览</label>
+                                                    <div class="ai-parse-result" id="parseResult">
+                                                        <div class="parse-empty-state" id="parseEmptyState">
+                                                            <i class="fas fa-magic"></i>
+                                                            <p>输入描述后点击"预览解析"</p>
+                                                            <p>AI 将智能识别任务信息</p>
+                                                        </div>
+                                                        <div class="parse-content" id="parseContent" style="display: none;">
+                                                            <div class="parse-result-header">
+                                                                <i class="fas fa-check-circle"></i>
+                                                                <span>解析完成</span>
+                                                            </div>
+                                                            <div class="parse-preview">
+                                                                <div class="parse-type" id="parseType"></div>
+                                                                <div class="parse-fields" id="parseFields"></div>
+                                                            </div>
+                                                            <div class="parse-actions">
+                                                                <button class="btn-cancel" id="cancelParseBtn">
+                                                                    <i class="fas fa-times"></i>
+                                                                    取消
+                                                                </button>
+                                                                <button class="btn-confirm" id="confirmCreateBtn">
+                                                                    <i class="fas fa-check"></i>
+                                                                    确认创建
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -627,67 +664,80 @@
                                             <i class="fas fa-sliders"></i>
                                         </div>
                                         <h2>AI 服务设置</h2>
-                                        <p>配置 AI 服务的连接参数</p>
+                                        <p>配置 AI 服务的连接参数，开始智能对话体验</p>
                                     </div>
 
-                                    <div class="settings-card">
-                                        <div class="settings-card-header">
-                                            <i class="fas fa-server"></i>
-                                            <span>API 配置</span>
-                                        </div>
-                                        <div class="settings-form">
-                                            <div class="form-group">
-                                                <label>
-                                                    <i class="fas fa-link"></i>
-                                                    Base URL
-                                                </label>
-                                                <input type="text" id="aiBaseUrl" placeholder="https://api.openai.com/v1">
-                                                <span class="form-hint">API 服务地址</span>
+                                    <div class="ai-settings-content">
+                                        <div class="settings-card">
+                                            <div class="settings-card-header">
+                                                <i class="fas fa-server"></i>
+                                                <span>API 配置</span>
                                             </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    <i class="fas fa-key"></i>
-                                                    API Key
-                                                </label>
-                                                <div class="input-with-btn">
-                                                    <input type="password" id="aiApiKey" placeholder="sk-xxxx...">
-                                                    <button type="button" class="btn-toggle-key" id="toggleApiKey">
-                                                        <i class="fas fa-eye"></i>
+                                            <div class="settings-form">
+                                                <div class="form-row">
+                                                    <div class="form-group">
+                                                        <label>
+                                                            <i class="fas fa-link"></i>
+                                                            Base URL
+                                                        </label>
+                                                        <input type="text" id="aiBaseUrl" placeholder="https://api.openai.com/v1">
+                                                        <span class="form-hint">API 服务地址，支持 OpenAI 兼容接口</span>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>
+                                                            <i class="fas fa-microchip"></i>
+                                                            模型名称
+                                                        </label>
+                                                        <input type="text" id="aiModel" placeholder="gpt-4o-mini">
+                                                        <span class="form-hint">使用的 AI 模型</span>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>
+                                                        <i class="fas fa-key"></i>
+                                                        API Key
+                                                    </label>
+                                                    <div class="input-with-btn">
+                                                        <input type="password" id="aiApiKey" placeholder="sk-xxxx...">
+                                                        <button type="button" class="btn-toggle-key" id="toggleApiKey">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                    </div>
+                                                    <span class="form-hint">你的 API 密钥，将安全存储在服务器</span>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label class="switch-label">
+                                                        <span class="switch-text">
+                                                            <i class="fas fa-power-off"></i>
+                                                            启用 AI 服务
+                                                        </span>
+                                                        <div class="switch-toggle">
+                                                            <input type="checkbox" id="aiEnabled">
+                                                            <span class="switch-slider"></span>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                                <div class="settings-actions">
+                                                    <button class="btn-test" id="testConnectionBtn">
+                                                        <i class="fas fa-plug"></i>
+                                                        测试连接
+                                                    </button>
+                                                    <button class="btn-save" id="saveAiConfigBtn">
+                                                        <i class="fas fa-save"></i>
+                                                        保存配置
                                                     </button>
                                                 </div>
-                                                <span class="form-hint">你的 API 密钥</span>
+                                                <div class="connection-status" id="connectionStatus"></div>
                                             </div>
-                                            <div class="form-group">
-                                                <label>
-                                                    <i class="fas fa-microchip"></i>
-                                                    模型名称
-                                                </label>
-                                                <input type="text" id="aiModel" placeholder="gpt-4o-mini">
-                                                <span class="form-hint">使用的 AI 模型</span>
-                                            </div>
-                                            <div class="form-group">
-                                                <label class="switch-label">
-                                                    <span class="switch-text">
-                                                        <i class="fas fa-power-off"></i>
-                                                        启用 AI 服务
-                                                    </span>
-                                                    <div class="switch-toggle">
-                                                        <input type="checkbox" id="aiEnabled">
-                                                        <span class="switch-slider"></span>
-                                                    </div>
-                                                </label>
-                                            </div>
-                                            <div class="settings-actions">
-                                                <button class="btn-test" id="testConnectionBtn">
-                                                    <i class="fas fa-plug"></i>
-                                                    测试连接
-                                                </button>
-                                                <button class="btn-save" id="saveAiConfigBtn">
-                                                    <i class="fas fa-save"></i>
-                                                    保存配置
-                                                </button>
-                                            </div>
-                                            <div class="connection-status" id="connectionStatus"></div>
+                                        </div>
+
+                                        <div class="settings-help">
+                                            <h4><i class="fas fa-circle-question"></i> 如何获取 API Key？</h4>
+                                            <ul>
+                                                <li>访问 <strong>OpenAI</strong>: platform.openai.com</li>
+                                                <li>或使用其他兼容 OpenAI 接口的服务</li>
+                                                <li>创建 API Key 并复制到上方输入框</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>

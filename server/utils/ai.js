@@ -284,7 +284,52 @@ const SYSTEM_PROMPTS = {
 
 请用友好、专业的语气回复。`,
 
-    parse: `你是一个智能输入解析器。用户会用自然语言描述一个任务或想法，你需要解析并提取结构化信息。
+    // 动态生成解析提示词的函数（每次调用时重新计算日期）
+    getParsePrompt: function() {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const dayOfWeek = now.getDay(); // 0=周日, 1=周一, ... 6=周六
+        const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+
+        // 计算相对于今天的日期
+        const getDateStr = (daysFromToday) => {
+            const d = new Date(now);
+            d.setDate(d.getDate() + daysFromToday);
+            return d.toISOString().split('T')[0];
+        };
+
+        // 计算本周X是哪天
+        const getThisWeekDay = (targetDay) => {
+            // targetDay: 0=周日, 1=周一, ..., 6=周六
+            const diff = targetDay - dayOfWeek;
+            return getDateStr(diff);
+        };
+
+        // 计算下周X是哪天
+        const getNextWeekDay = (targetDay) => {
+            // targetDay: 0=周日, 1=周一, ..., 6=周六
+            // 下周一 = 今天 + (7 - dayOfWeek + 1) 或直接 + (8 - dayOfWeek) % 7 + 7 when needed
+            const daysUntilNextMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
+            const daysFromNextMonday = targetDay === 0 ? 6 : (targetDay - 1);
+            return getDateStr(daysUntilNextMonday + daysFromNextMonday);
+        };
+
+        return `你是一个智能输入解析器。用户会用自然语言描述一个任务或想法，你需要解析并提取结构化信息。
+
+【当前时间信息 - 非常重要，请严格使用以下日期】
+- 今天: ${today} (星期${dayNames[dayOfWeek]})
+- 明天: ${getDateStr(1)}
+- 后天: ${getDateStr(2)}
+- 本周五/这周五: ${getThisWeekDay(5)}
+- 本周六: ${getThisWeekDay(6)}
+- 本周日: ${getThisWeekDay(0)}
+- 下周一: ${getNextWeekDay(1)}
+- 下周二: ${getNextWeekDay(2)}
+- 下周三: ${getNextWeekDay(3)}
+- 下周四: ${getNextWeekDay(4)}
+- 下周五: ${getNextWeekDay(5)}
+- 下周六: ${getNextWeekDay(6)}
+- 下周日: ${getNextWeekDay(0)}
 
 请分析用户输入，返回以下JSON格式（严格JSON，不要有其他文字）：
 
@@ -303,17 +348,26 @@ const SYSTEM_PROMPTS = {
     }
 }
 
-解析规则：
-- 如果包含"想法"、"灵感"、"思考"等词，type为"idea"
-- 如果包含"任务"、"待办"、"要做"或有明确时间点，type为"note"
-- 时间词解析：今天=${new Date().toISOString().split('T')[0]}
-- "明天"、"后天"、"下周一"等需要正确计算日期
-- "下午3点"→15:00，"晚上8点"→20:00
-- 如果只说了截止时间，可以建议一个提醒时间（提前30分钟到1天）
-- 优先级：包含"紧急"、"马上"→high；"有空"、"以后"→low；默认→medium
-- isImportant：包含"重要"、"关键"、"必须"→true
+【日期解析规则 - 必须严格遵守】
+用户说"下周五"时，必须使用上面【当前时间信息】中"下周五"对应的日期：${getNextWeekDay(5)}
+用户说"本周五"或"这周五"时，使用：${getThisWeekDay(5)}
 
-只返回JSON，不要有任何其他说明文字。`,
+时间解析：
+- "早上/上午X点" → X:00 (X<=12)
+- "下午X点" → (X+12):00 (X<12时)
+- "晚上X点" → (X+12):00
+- 无具体时间时，截止日期默认 18:00
+
+其他解析规则：
+- 包含"想法"、"灵感"、"思考"等词 → type="idea"
+- 包含时间点或"任务"、"待办"、"要做" → type="note"
+- "紧急"、"马上"、"立刻" → priority="high"
+- "有空"、"以后"、"不急" → priority="low"
+- "重要"、"关键"、"必须" → isImportant=true
+- 如有截止时间，建议提醒时间提前1天上午9点
+
+只返回JSON，不要有任何其他说明文字。`;
+    },
 
     weeklyReport: `你是一个效率分析师。请根据用户本周的数据生成一份简洁的周报。
 
