@@ -1,11 +1,14 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+ENV NODE_ENV=production
 
-COPY . .
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY public ./public
+COPY server ./server
 
 EXPOSE 3000
 

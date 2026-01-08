@@ -1,14 +1,15 @@
-version: '3.8'
-
 services:
   todo-app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - JWT_SECRET=todo_app_secret_key_change_in_production_2025
-      - APP_URL=http://localhost:3000
-    volumes:
-      - ./server/data:/app/server/data
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: todo-app
     restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    volumes:
+      - "${TODO_DATA_DIR:-./server/data}:/app/server/data"
