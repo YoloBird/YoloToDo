@@ -1,10 +1,13 @@
 const express = require('express');
 const {
     getNotesByUserId,
+    getArchivedNotesByUserId,
     getNoteById,
     addNote,
     updateNote,
     deleteNote,
+    archiveNote,
+    unarchiveNote,
     completeAllNotes,
     exportNotes,
     importNotes
@@ -28,6 +31,21 @@ router.get('/', (req, res) => {
     } catch (error) {
         console.error('Error fetching notes:', error);
         res.status(500).json({ error: '获取便签失败' });
+    }
+});
+
+// ==================== 获取归档便签（必须在/:id之前） ====================
+/**
+ * GET /api/notes/archived
+ * 获取所有已归档的便签
+ */
+router.get('/archived', (req, res) => {
+    try {
+        const notes = getArchivedNotesByUserId(req.user.id);
+        res.json(notes);
+    } catch (error) {
+        console.error('Error fetching archived notes:', error);
+        res.status(500).json({ error: '获取归档便签失败' });
     }
 });
 
@@ -76,7 +94,8 @@ router.post('/', (req, res) => {
             priority,
             dueDate,
             reminderDate,
-            reminderMethods
+            reminderMethods,
+            subtasks       // 子任务数组
         } = req.body;
 
         // 验证必填字段
@@ -103,6 +122,11 @@ router.post('/', (req, res) => {
             dueDate: dueDate || null,
             reminderDate: reminderDate || null,
             reminderMethods: reminderMethods || [],
+            subtasks: (subtasks || []).map((st, idx) => ({
+                id: `${Date.now()}_${idx}`,
+                text: st.text || st,
+                completed: st.completed || false
+            })),
             reminderSent: false,
             completed: false,
             createdAt: new Date().toISOString(),
@@ -231,6 +255,49 @@ router.patch('/:id/toggle', (req, res) => {
     }
 });
 
+// ==================== 切换子任务状态 ====================
+/**
+ * PATCH /api/notes/:id/subtask/:subtaskId
+ * 切换子任务的完成状态
+ */
+router.patch('/:id/subtask/:subtaskId', (req, res) => {
+    try {
+        const note = getNoteById(req.params.id);
+
+        if (!note) {
+            return res.status(404).json({ error: '便签不存在' });
+        }
+
+        if (note.userId !== req.user.id) {
+            return res.status(403).json({ error: '无权修改此便签' });
+        }
+
+        const subtasks = note.subtasks || [];
+        const subtaskIndex = subtasks.findIndex(st => st.id === req.params.subtaskId);
+
+        if (subtaskIndex === -1) {
+            return res.status(404).json({ error: '子任务不存在' });
+        }
+
+        subtasks[subtaskIndex].completed = !subtasks[subtaskIndex].completed;
+
+        const success = updateNote(req.params.id, {
+            subtasks,
+            updatedAt: new Date().toISOString()
+        });
+
+        if (success) {
+            const updatedNote = getNoteById(req.params.id);
+            res.json(updatedNote);
+        } else {
+            res.status(500).json({ error: '更新子任务失败' });
+        }
+    } catch (error) {
+        console.error('Error toggling subtask:', error);
+        res.status(500).json({ error: '更新子任务失败' });
+    }
+});
+
 // ==================== 一键完成所有 ====================
 /**
  * POST /api/notes/complete-all
@@ -248,6 +315,67 @@ router.post('/complete-all', (req, res) => {
     } catch (error) {
         console.error('Error completing all notes:', error);
         res.status(500).json({ error: '操作失败' });
+    }
+});
+
+// ==================== 归档操作 ====================
+/**
+ * POST /api/notes/:id/archive
+ * 归档指定便签
+ */
+router.post('/:id/archive', (req, res) => {
+    try {
+        const note = getNoteById(req.params.id);
+
+        if (!note) {
+            return res.status(404).json({ error: '便签不存在' });
+        }
+
+        if (note.userId !== req.user.id) {
+            return res.status(403).json({ error: '无权操作此便签' });
+        }
+
+        const success = archiveNote(req.params.id);
+
+        if (success) {
+            const updatedNote = getNoteById(req.params.id);
+            res.json(updatedNote);
+        } else {
+            res.status(500).json({ error: '归档失败' });
+        }
+    } catch (error) {
+        console.error('Error archiving note:', error);
+        res.status(500).json({ error: '归档失败' });
+    }
+});
+
+/**
+ * POST /api/notes/:id/unarchive
+ * 取消归档（恢复）指定便签
+ */
+router.post('/:id/unarchive', (req, res) => {
+    try {
+        const note = getNoteById(req.params.id);
+
+        if (!note) {
+            return res.status(404).json({ error: '便签不存在' });
+        }
+
+        if (note.userId !== req.user.id) {
+            return res.status(403).json({ error: '无权操作此便签' });
+        }
+
+        const success = unarchiveNote(req.params.id);
+
+        if (success) {
+            const updatedNote = getNoteById(req.params.id);
+            res.json(updatedNote);
+        } else {
+            res.status(500).json({ error: '恢复失败' });
+        }
+    } catch (error) {
+        console.error('Error unarchiving note:', error);
+        res.status(500).json({ error: '恢复失败' });
     }
 });
 

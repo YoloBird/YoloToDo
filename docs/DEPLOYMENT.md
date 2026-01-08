@@ -1,99 +1,163 @@
 # 部署指南
 
-本文档提供将智能便签系统部署到生产服务器的完整指南。
+智能便签系统部署完整指南，包含首次部署和后续更新流程。
 
 ## 目录
 
-- [环境准备](#环境准备)
-- [方式一：直接部署](#方式一直接部署)
-- [方式二：PM2 部署](#方式二pm2-部署)
-- [方式三：Docker 部署](#方式三docker-部署)
-- [方式四：Docker Compose](#方式四docker-compose)
+- [快速开始](#快速开始)
+- [适用场景与推荐流程](#适用场景与推荐流程)
+  - [WSL 本地开发 + 服务器生产（推荐）](#wsl-本地开发--服务器生产推荐)
+  - [数据安全策略（避免更新丢失）](#数据安全策略避免更新丢失)
+  - [无调试条件下的排障与回滚](#无调试条件下的排障与回滚)
+  - [常见场景选择](#常见场景选择)
+- [首次部署](#首次部署)
+  - [方式一：PM2 部署（推荐）](#方式一pm2-部署推荐)
+  - [方式二：Docker 部署](#方式二docker-部署)
+- [更新部署](#更新部署)
+  - [PM2 更新流程](#pm2-更新流程)
+  - [Docker 更新流程](#docker-更新流程)
 - [Nginx 反向代理](#nginx-反向代理)
 - [HTTPS 配置](#https-配置)
 - [数据备份与恢复](#数据备份与恢复)
-- [监控与日志](#监控与日志)
 - [常见问题](#常见问题)
+- [运维速查表](#运维速查表)
 
 ---
 
-## 环境准备
+## 快速开始
 
 ### 系统要求
 
-| 项目 | 最低要求 | 推荐配置 |
-|------|----------|----------|
-| 操作系统 | Ubuntu 20.04+ / CentOS 7+ / Debian 10+ | Ubuntu 22.04 LTS |
-| CPU | 1 核 | 2 核 |
-| 内存 | 512MB | 1GB |
-| 磁盘 | 1GB | 10GB |
-| Node.js | 18.x | 20.x LTS |
+| 项目 | 最低要求 | 说明 |
+|------|----------|------|
+| 操作系统 | Ubuntu 20.04+ / Debian 10+ | 推荐 Ubuntu 22.04 |
+| CPU | 1 核 | 2H2G 配置完全够用 |
+| 内存 | 512MB | JSON 存储内存占用极小 |
+| Node.js | 18.x+ | 推荐 20.x LTS |
 
-### 安装 Node.js
+### 安装 Node.js（Ubuntu/Debian）
 
-**Ubuntu/Debian:**
 ```bash
-# 使用 NodeSource 仓库
+# 使用 NodeSource 仓库安装 Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
-# 验证安装
-node --version
-npm --version
+# 验证
+node --version  # v20.x.x
+npm --version   # 10.x.x
 ```
 
-**CentOS/RHEL:**
+### 安装 Git
+
 ```bash
-curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-sudo yum install -y nodejs
+sudo apt-get install -y git
 ```
 
 ---
 
-## 方式一：直接部署
+## 适用场景与推荐流程
 
-最简单的部署方式，适合测试环境。
+本节针对：你在 WSL 本地开发/调试，通过本地验证后再部署到服务器；服务器不具备调试条件，需要可回滚、可更新、数据不丢失。
+
+### WSL 本地开发 + 服务器生产（推荐）
+
+1. 本地开发与预发布测试（WSL）
+   - Node 版本尽量与服务器一致（建议 20.x LTS）
+   - 本地维护 `.env`，不要提交到 git
+   - 开发使用 `npm run dev`
+   - 预发布验证使用 `NODE_ENV=production npm start`，并 `curl http://localhost:3000`
+2. 生成可部署版本（选一种）
+   - 方式 A：Git 发布（推荐）
+     - 本地提交并 `git push`
+     - 服务器执行 `git pull` + 安装依赖 + 重启
+   - 方式 B：离线包发布（服务器无 git/无公网）
+     - 本地打包（排除数据与配置）：
+       `tar -czf todo-app-YYYYMMDD.tar.gz --exclude=node_modules --exclude=.env --exclude=server/data .`
+     - 上传到服务器并解压到 `/opt/todo-app`
+3. 服务器更新与验证
+   - 更新前先备份 `server/data`
+   - 更新后检查 `pm2 status` / `docker-compose ps`、`pm2 logs` / `docker-compose logs`
+   - `curl http://localhost:3000` 进行健康检查
+
+### 数据安全策略（避免更新丢失）
+
+- 业务数据在 `server/data/*.json`，已在 `.gitignore` 中排除，正常更新不会覆盖
+- 不要执行 `git clean -fd` 或删除 `/opt/todo-app/server/data`
+- Docker 部署务必挂载持久化目录：`./server/data:/app/server/data`
+- 建议同时备份 `.env` 与 `server/data`，并保留至少 7 天
+
+### 无调试条件下的排障与回滚
+
+- 先收集日志：`pm2 logs todo-app --lines 200` 或 `docker-compose logs --tail=200`
+- 记录版本信息：`git rev-parse HEAD`、`node --version`
+- 将日志和 `server/data` 备份拉回本地复现，修复后再发布
+- 快速回滚：`git checkout <last-good>` + `pm2 restart todo-app`
+- 数据回滚：解压备份覆盖 `server/data` 后重启服务
+
+### 常见场景选择
+
+- 仅本地/内网使用：直接 PM2 或 `npm start`，可不配置 Nginx/HTTPS
+- 有公网域名：建议 Nginx 反代 + HTTPS
+- 服务器无 Docker：用 PM2
+- 想要隔离与可移植：用 Docker Compose
+
+---
+
+## 首次部署
+
+### 方式一：PM2 部署（推荐）
+
+PM2 是 Node.js 生产环境进程管理器，支持自动重启、日志管理、开机自启。
+
+#### 1. 安装 PM2
 
 ```bash
-# 1. 克隆代码
-git clone <your-repo-url> /opt/todo-app
-cd /opt/todo-app
+sudo npm install -g pm2
+```
 
-# 2. 安装依赖
+#### 2. 克隆代码
+
+```bash
+# 创建应用目录
+sudo mkdir -p /opt/todo-app
+sudo chown $USER:$USER /opt/todo-app
+
+# 克隆代码（替换为你的仓库地址）
+git clone https://github.com/your-username/ToDo_List.git /opt/todo-app
+cd /opt/todo-app
+```
+
+#### 3. 安装依赖
+
+```bash
 npm install --production
+```
 
-# 3. 配置环境变量
+#### 4. 配置环境变量
+
+```bash
 cat > .env << 'EOF'
+# 服务配置
 PORT=3000
-JWT_SECRET=your_very_secure_random_string_here_at_least_32_chars
 NODE_ENV=production
+
+# 安全配置（必须修改！）
+JWT_SECRET=这里改成一个很长的随机字符串至少32位
+
+# 可选：邮件提醒
+# EMAIL_HOST=smtp.qq.com
+# EMAIL_PORT=465
+# EMAIL_USER=your_email@qq.com
+# EMAIL_PASS=your_smtp_password
+
+# 可选：Telegram 提醒
+# TELEGRAM_BOT_TOKEN=your_bot_token
 EOF
-
-# 4. 启动服务
-npm start
 ```
 
-> **注意**: 直接启动的服务在终端关闭后会停止，不推荐用于生产环境。
-
----
-
-## 方式二：PM2 部署
-
-推荐的生产部署方式，支持进程管理、自动重启、日志管理。
-
-### 安装 PM2
+#### 5. 创建 PM2 配置
 
 ```bash
-npm install -g pm2
-```
-
-### 部署步骤
-
-```bash
-# 1. 进入项目目录
-cd /opt/todo-app
-
-# 2. 创建 PM2 配置文件
 cat > ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [{
@@ -102,10 +166,9 @@ module.exports = {
     instances: 1,
     autorestart: true,
     watch: false,
-    max_memory_restart: '500M',
+    max_memory_restart: '300M',
     env: {
-      NODE_ENV: 'production',
-      PORT: 3000
+      NODE_ENV: 'production'
     },
     error_file: './logs/error.log',
     out_file: './logs/out.log',
@@ -115,170 +178,266 @@ module.exports = {
 };
 EOF
 
-# 3. 创建日志目录
+# 创建日志目录
 mkdir -p logs
+```
 
-# 4. 启动应用
+#### 6. 启动服务
+
+```bash
 pm2 start ecosystem.config.js
 
-# 5. 设置开机自启
-pm2 startup
-pm2 save
-
-# 6. 查看状态
-pm2 status
-pm2 logs todo-app
-```
-
-### PM2 常用命令
-
-```bash
-# 查看所有进程
-pm2 list
-
-# 查看详细信息
-pm2 show todo-app
-
-# 查看日志
-pm2 logs todo-app
-
-# 重启应用
-pm2 restart todo-app
-
-# 停止应用
-pm2 stop todo-app
-
-# 删除应用
-pm2 delete todo-app
-
-# 监控面板
-pm2 monit
-```
-
----
-
-## 方式三：Docker 部署
-
-### 创建 Dockerfile
-
-```dockerfile
-FROM node:20-alpine
-
-WORKDIR /app
-
-# 复制依赖文件
-COPY package*.json ./
-
-# 安装依赖
-RUN npm ci --only=production
-
-# 复制源代码
-COPY . .
-
-# 创建数据目录
-RUN mkdir -p server/data
-
-# 暴露端口
-EXPOSE 3000
-
-# 启动命令
-CMD ["node", "server/server.js"]
-```
-
-### 构建和运行
-
-```bash
-# 构建镜像
-docker build -t todo-app:latest .
-
-# 运行容器
-docker run -d \
-  --name todo-app \
-  -p 3000:3000 \
-  -v $(pwd)/data:/app/server/data \
-  -e JWT_SECRET=your_secret_here \
-  --restart unless-stopped \
-  todo-app:latest
-
-# 查看日志
-docker logs -f todo-app
-```
-
----
-
-## 方式四：Docker Compose
-
-### 创建 docker-compose.yml
-
-```yaml
-version: '3.8'
-
-services:
-  todo-app:
-    build: .
-    container_name: todo-app
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./server/data:/app/server/data
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-change_this_secret}
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-```
-
-### 运行
-
-```bash
-# 启动
-docker-compose up -d
-
 # 查看状态
-docker-compose ps
+pm2 status
+
+# 查看日志
+pm2 logs todo-app
+```
+
+#### 7. 设置开机自启
+
+```bash
+pm2 startup
+# 按提示执行输出的命令
+
+pm2 save
+```
+
+#### 8. 验证部署
+
+```bash
+# 检查服务是否运行
+curl http://localhost:3000
+
+# 应该看到 HTML 内容
+```
+
+---
+
+### 方式二：Docker 部署
+
+适合有 Docker 环境的服务器。
+
+#### 1. 安装 Docker
+
+```bash
+# Ubuntu/Debian
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+
+# 重新登录后生效
+```
+
+#### 2. 克隆代码
+
+```bash
+git clone https://github.com/your-username/ToDo_List.git /opt/todo-app
+cd /opt/todo-app
+```
+
+#### 3. 配置环境变量
+
+```bash
+cat > .env << 'EOF'
+JWT_SECRET=这里改成一个很长的随机字符串至少32位
+EOF
+```
+
+#### 4. 启动服务
+
+```bash
+docker-compose up -d
 
 # 查看日志
 docker-compose logs -f
+```
 
-# 停止
+---
+
+## 更新部署
+
+当你修改了代码需要重新部署时，按以下流程操作。
+
+### PM2 更新流程
+
+#### 标准更新流程
+
+```bash
+# 1. 进入项目目录
+cd /opt/todo-app
+
+# 2. 备份数据（推荐）
+tar -czf "/tmp/backup_$(date +%Y%m%d_%H%M%S).tar.gz" server/data/
+
+# 3. 拉取最新代码
+git pull origin main
+
+# 4. 安装可能新增的依赖（如果 package.json 有变化）
+npm install --production
+
+# 5. 重启服务
+pm2 restart todo-app
+
+# 6. 查看日志确认正常
+pm2 logs todo-app --lines 50
+```
+
+#### 一键更新脚本
+
+> 注意：脚本使用 `git reset --hard origin/main`，会丢弃服务器上对仓库文件的改动，适用于服务器仅部署、无本地修改的场景。
+
+创建更新脚本 `/opt/todo-app/update.sh`：
+
+```bash
+#!/bin/bash
+set -e
+
+APP_DIR="/opt/todo-app"
+APP_NAME="todo-app"
+
+echo "========================================="
+echo "开始更新 Todo App"
+echo "========================================="
+
+cd $APP_DIR
+
+# 备份数据
+echo "[1/5] 备份数据..."
+BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).tar.gz"
+tar -czf "/tmp/$BACKUP_FILE" server/data/
+echo "      备份已保存到 /tmp/$BACKUP_FILE"
+
+# 拉取代码
+echo "[2/5] 拉取最新代码..."
+git fetch origin
+git reset --hard origin/main
+
+# 安装依赖
+echo "[3/5] 安装依赖..."
+npm install --production
+
+# 重启服务
+echo "[4/5] 重启服务..."
+pm2 restart $APP_NAME
+
+# 等待启动
+sleep 3
+
+# 检查状态
+echo "[5/5] 检查服务状态..."
+pm2 status $APP_NAME
+
+echo ""
+echo "========================================="
+echo "更新完成！"
+echo "========================================="
+echo "查看日志: pm2 logs $APP_NAME"
+echo "回滚备份: tar -xzf /tmp/$BACKUP_FILE -C /"
+```
+
+设置权限并使用：
+
+```bash
+chmod +x /opt/todo-app/update.sh
+
+# 以后更新只需运行
+/opt/todo-app/update.sh
+```
+
+#### 回滚到之前版本
+
+```bash
+cd /opt/todo-app
+
+# 查看提交历史
+git log --oneline -10
+
+# 回滚到指定版本
+git checkout <commit-hash>
+
+# 重启服务
+pm2 restart todo-app
+```
+
+---
+
+### Docker 更新流程
+
+#### 标准更新流程
+
+```bash
+cd /opt/todo-app
+
+# 1. 备份数据（推荐）
+tar -czf "/tmp/backup_$(date +%Y%m%d_%H%M%S).tar.gz" server/data/
+
+# 2. 拉取最新代码
+git pull origin main
+
+# 3. 重新构建镜像
+docker-compose build
+
+# 4. 重启容器
+docker-compose up -d
+
+# 5. 查看日志
+docker-compose logs -f
+```
+
+#### 一键更新脚本
+
+创建 `/opt/todo-app/docker-update.sh`：
+
+```bash
+#!/bin/bash
+set -e
+
+APP_DIR="/opt/todo-app"
+
+echo "开始更新..."
+
+cd $APP_DIR
+
+# 备份数据
+echo "[1/4] 备份数据..."
+tar -czf "/tmp/backup_$(date +%Y%m%d_%H%M%S).tar.gz" server/data/
+
+# 拉取代码
+echo "[2/4] 拉取代码..."
+git pull origin main
+
+# 重建并重启
+echo "[3/4] 重建镜像..."
 docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+
+# 清理旧镜像
+echo "[4/4] 清理旧镜像..."
+docker image prune -f
+
+echo "更新完成！"
+docker-compose logs --tail=20
 ```
 
 ---
 
 ## Nginx 反向代理
 
-推荐使用 Nginx 作为反向代理，提供静态文件缓存、SSL 终端等功能。
-
 ### 安装 Nginx
 
 ```bash
-# Ubuntu/Debian
 sudo apt update
 sudo apt install -y nginx
-
-# CentOS
-sudo yum install -y nginx
 ```
 
-### 配置文件
+### 创建配置
 
-创建 `/etc/nginx/sites-available/todo-app`：
-
-```nginx
+```bash
+sudo cat > /etc/nginx/sites-available/todo-app << 'EOF'
 server {
     listen 80;
-    server_name your-domain.com;
-
-    # 安全头
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    server_name your-domain.com;  # 改成你的域名或 IP
 
     # 日志
     access_log /var/log/nginx/todo-app.access.log;
@@ -291,17 +450,14 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # API 和其他请求
+    # 所有请求
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
 
         # 超时设置
         proxy_connect_timeout 60s;
@@ -309,6 +465,7 @@ server {
         proxy_read_timeout 60s;
     }
 }
+EOF
 ```
 
 ### 启用配置
@@ -317,10 +474,13 @@ server {
 # 创建软链接
 sudo ln -s /etc/nginx/sites-available/todo-app /etc/nginx/sites-enabled/
 
+# 删除默认站点（可选）
+sudo rm -f /etc/nginx/sites-enabled/default
+
 # 测试配置
 sudo nginx -t
 
-# 重载配置
+# 重载
 sudo systemctl reload nginx
 ```
 
@@ -330,33 +490,15 @@ sudo systemctl reload nginx
 
 使用 Let's Encrypt 免费证书。
 
-### 安装 Certbot
-
 ```bash
-# Ubuntu/Debian
+# 安装 Certbot
 sudo apt install -y certbot python3-certbot-nginx
 
-# CentOS
-sudo yum install -y certbot python3-certbot-nginx
-```
-
-### 获取证书
-
-```bash
-# 自动配置
+# 获取证书（自动配置 Nginx）
 sudo certbot --nginx -d your-domain.com
 
 # 测试自动续期
 sudo certbot renew --dry-run
-```
-
-### 自动续期
-
-Certbot 会自动添加定时任务，每天检查证书是否需要续期。
-
-```bash
-# 查看定时任务
-sudo systemctl list-timers | grep certbot
 ```
 
 ---
@@ -365,19 +507,16 @@ sudo systemctl list-timers | grep certbot
 
 ### 自动备份
 
-系统已内置自动备份功能：
+系统已内置自动备份：
 - 每天凌晨 3:00 自动备份
-- 保留最近 7 天的备份
-- 备份位置：`server/data/backups/`
+- 保留最近 7 天
+- 位置：`server/data/backups/`
 
 ### 手动备份
 
 ```bash
-# 创建备份
-tar -czvf backup_$(date +%Y%m%d_%H%M%S).tar.gz server/data/
-
-# 复制到远程
-scp backup_*.tar.gz user@backup-server:/path/to/backups/
+cd /opt/todo-app
+tar -czf ~/todo-backup-$(date +%Y%m%d).tar.gz server/data/
 ```
 
 ### 恢复数据
@@ -386,81 +525,18 @@ scp backup_*.tar.gz user@backup-server:/path/to/backups/
 # 停止服务
 pm2 stop todo-app
 
-# 解压备份
-tar -xzvf backup_YYYYMMDD_HHMMSS.tar.gz
+# 恢复数据
+tar -xzf ~/todo-backup-YYYYMMDD.tar.gz -C /opt/todo-app/
 
 # 启动服务
 pm2 start todo-app
 ```
 
-### 定时远程备份脚本
-
-创建 `/opt/todo-app/backup.sh`：
+### 同步到本地
 
 ```bash
-#!/bin/bash
-BACKUP_DIR="/opt/todo-app/server/data"
-REMOTE_USER="backup"
-REMOTE_HOST="backup-server.com"
-REMOTE_PATH="/backups/todo-app"
-DATE=$(date +%Y%m%d)
-
-# 创建备份
-tar -czvf /tmp/todo-backup-$DATE.tar.gz $BACKUP_DIR
-
-# 上传到远程服务器
-rsync -avz /tmp/todo-backup-$DATE.tar.gz $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/
-
-# 清理本地临时文件
-rm /tmp/todo-backup-$DATE.tar.gz
-
-# 删除超过30天的远程备份
-ssh $REMOTE_USER@$REMOTE_HOST "find $REMOTE_PATH -name '*.tar.gz' -mtime +30 -delete"
-```
-
-添加到 crontab：
-```bash
-# 每天凌晨 4 点执行
-0 4 * * * /opt/todo-app/backup.sh
-```
-
----
-
-## 监控与日志
-
-### PM2 监控
-
-```bash
-# 实时监控
-pm2 monit
-
-# 查看日志
-pm2 logs todo-app --lines 100
-
-# 清空日志
-pm2 flush
-```
-
-### 系统日志
-
-```bash
-# 查看 Nginx 访问日志
-tail -f /var/log/nginx/todo-app.access.log
-
-# 查看 Nginx 错误日志
-tail -f /var/log/nginx/todo-app.error.log
-```
-
-### 健康检查
-
-```bash
-# 检查服务是否运行
-curl -s http://localhost:3000 | head -20
-
-# 检查 API
-curl -s http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test","password":"test"}'
+# 从服务器下载备份（在本地执行）
+scp user@server:/opt/todo-app/server/data/backups/*.json ./backups/
 ```
 
 ---
@@ -470,10 +546,10 @@ curl -s http://localhost:3000/api/auth/login \
 ### 1. 端口被占用
 
 ```bash
-# 查找占用端口的进程
+# 查找占用进程
 lsof -i :3000
 
-# 杀掉进程
+# 结束进程
 kill -9 <PID>
 ```
 
@@ -481,31 +557,27 @@ kill -9 <PID>
 
 ```bash
 # 确保数据目录可写
-chmod -R 755 server/data
-chown -R $USER:$USER server/data
+chmod -R 755 /opt/todo-app/server/data
+chown -R $USER:$USER /opt/todo-app/server/data
 ```
 
-### 3. 内存不足
+### 3. 服务无法启动
 
 ```bash
-# 创建 swap 文件
-sudo fallocate -l 1G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
+# 查看详细日志
+pm2 logs todo-app --lines 100
 
-# 永久生效
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+# 检查 Node.js 版本
+node --version
 ```
 
-### 4. Node.js 版本问题
+### 4. 更新后功能异常
 
 ```bash
-# 使用 nvm 管理 Node.js 版本
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-source ~/.bashrc
-nvm install 20
-nvm use 20
+# 清除 npm 缓存重新安装
+rm -rf node_modules
+npm install --production
+pm2 restart todo-app
 ```
 
 ### 5. 防火墙配置
@@ -514,11 +586,53 @@ nvm use 20
 # Ubuntu (ufw)
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
+sudo ufw status
+```
 
-# CentOS (firewalld)
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --permanent --add-service=https
-sudo firewall-cmd --reload
+---
+
+## 运维速查表
+
+### PM2 常用命令
+
+| 命令 | 说明 |
+|------|------|
+| `pm2 status` | 查看所有进程状态 |
+| `pm2 logs todo-app` | 查看日志 |
+| `pm2 logs todo-app --lines 100` | 查看最后100行日志 |
+| `pm2 restart todo-app` | 重启服务 |
+| `pm2 stop todo-app` | 停止服务 |
+| `pm2 start todo-app` | 启动服务 |
+| `pm2 reload todo-app` | 平滑重载（零停机） |
+| `pm2 monit` | 实时监控 |
+| `pm2 flush` | 清空日志 |
+
+### Docker 常用命令
+
+| 命令 | 说明 |
+|------|------|
+| `docker-compose up -d` | 后台启动 |
+| `docker-compose down` | 停止并删除容器 |
+| `docker-compose logs -f` | 查看日志 |
+| `docker-compose restart` | 重启 |
+| `docker-compose build` | 重新构建 |
+| `docker-compose ps` | 查看状态 |
+
+### 日常运维流程
+
+```bash
+# 每日检查
+pm2 status
+pm2 logs todo-app --lines 20
+
+# 更新部署
+/opt/todo-app/update.sh
+
+# 查看磁盘占用
+du -sh /opt/todo-app/server/data/
+
+# 查看备份
+ls -la /opt/todo-app/server/data/backups/
 ```
 
 ---
@@ -527,12 +641,11 @@ sudo firewall-cmd --reload
 
 部署前请确认：
 
-- [ ] 已修改默认管理员密码
-- [ ] 已设置强 JWT_SECRET
-- [ ] 已配置 HTTPS
+- [ ] 已修改默认管理员密码（admin123）
+- [ ] 已设置强 JWT_SECRET（32位以上随机字符串）
 - [ ] 已配置防火墙
-- [ ] 已设置自动备份
-- [ ] 已配置开机自启
-- [ ] 已测试所有功能正常
-- [ ] 已配置日志轮转
+- [ ] PM2 已设置开机自启（`pm2 startup && pm2 save`）
+- [ ] 已测试更新流程可用
 - [ ] 已记录服务器访问凭证
+- [ ] （可选）已配置 HTTPS
+- [ ] （可选）已配置邮件/Telegram 提醒

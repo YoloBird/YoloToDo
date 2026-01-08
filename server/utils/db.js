@@ -17,6 +17,8 @@ const initDataFiles = async () => {
     const usersFile = path.join(DATA_DIR, 'users.json');
     const notesFile = path.join(DATA_DIR, 'notes.json');
     const ideasFile = path.join(DATA_DIR, 'ideas.json');
+    const diariesFile = path.join(DATA_DIR, 'diaries.json');
+    const goalsFile = path.join(DATA_DIR, 'goals.json');
 
     // Initialize notes file
     if (!fs.existsSync(notesFile)) {
@@ -26,6 +28,16 @@ const initDataFiles = async () => {
     // Initialize ideas file
     if (!fs.existsSync(ideasFile)) {
         fs.writeFileSync(ideasFile, JSON.stringify([], null, 2));
+    }
+
+    // Initialize diaries file
+    if (!fs.existsSync(diariesFile)) {
+        fs.writeFileSync(diariesFile, JSON.stringify([], null, 2));
+    }
+
+    // Initialize goals file
+    if (!fs.existsSync(goalsFile)) {
+        fs.writeFileSync(goalsFile, JSON.stringify([], null, 2));
     }
 
     // Initialize users file with admin account
@@ -126,10 +138,46 @@ const updateUserSettings = (userId, settings) => {
 // Get all notes
 const getNotes = () => readData('notes.json');
 
-// Get notes by user ID
-const getNotesByUserId = (userId) => {
+// Get notes by user ID (excludes archived by default)
+const getNotesByUserId = (userId, includeArchived = false) => {
     const notes = getNotes();
-    return notes.filter(n => n.userId === userId);
+    return notes.filter(n => {
+        if (n.userId !== userId) return false;
+        if (!includeArchived && n.archived) return false;
+        return true;
+    });
+};
+
+// Get archived notes by user ID
+const getArchivedNotesByUserId = (userId) => {
+    const notes = getNotes();
+    return notes.filter(n => n.userId === userId && n.archived === true);
+};
+
+// Archive a note
+const archiveNote = (id) => {
+    const notes = getNotes();
+    const index = notes.findIndex(n => n.id === id);
+    if (index !== -1) {
+        notes[index].archived = true;
+        notes[index].archivedAt = new Date().toISOString();
+        notes[index].updatedAt = new Date().toISOString();
+        return writeData('notes.json', notes);
+    }
+    return false;
+};
+
+// Unarchive a note
+const unarchiveNote = (id) => {
+    const notes = getNotes();
+    const index = notes.findIndex(n => n.id === id);
+    if (index !== -1) {
+        notes[index].archived = false;
+        notes[index].archivedAt = null;
+        notes[index].updatedAt = new Date().toISOString();
+        return writeData('notes.json', notes);
+    }
+    return false;
 };
 
 // Get note by ID
@@ -238,7 +286,9 @@ const backupData = () => {
 
     const notes = getNotes();
     const ideas = getIdeas();
-    const backupData = { notes, ideas };
+    const diaries = getDiaries();
+    const goals = getGoals();
+    const backupData = { notes, ideas, diaries, goals };
     const backupFile = path.join(backupDir, `backup_${timestamp}_${Date.now()}.json`);
     fs.writeFileSync(backupFile, JSON.stringify(backupData, null, 2));
 
@@ -302,6 +352,90 @@ const deleteAllIdeasByUserId = (userId) => {
     return writeData('ideas.json', filteredIdeas);
 };
 
+// ==================== Diaries Functions ====================
+
+// Get all diaries
+const getDiaries = () => readData('diaries.json');
+
+// Get diaries by user ID
+const getDiariesByUserId = (userId) => {
+    const diaries = getDiaries();
+    return diaries.filter(d => d.userId === userId);
+};
+
+// Get diary by ID and user ID
+const getDiaryById = (id, userId) => {
+    const diaries = getDiaries();
+    return diaries.find(d => d.id === id && d.userId === userId);
+};
+
+// Add new diary
+const addDiary = (diary) => {
+    const diaries = getDiaries();
+    diaries.push(diary);
+    return writeData('diaries.json', diaries);
+};
+
+// Update diary
+const updateDiary = (id, updatedDiary) => {
+    const diaries = getDiaries();
+    const index = diaries.findIndex(d => d.id === id);
+    if (index !== -1) {
+        diaries[index] = { ...diaries[index], ...updatedDiary, id };
+        return writeData('diaries.json', diaries);
+    }
+    return false;
+};
+
+// Delete diary
+const deleteDiary = (id) => {
+    const diaries = getDiaries();
+    const filteredDiaries = diaries.filter(d => d.id !== id);
+    return writeData('diaries.json', filteredDiaries);
+};
+
+// ==================== Goals Functions ====================
+
+// Get all goals
+const getGoals = () => readData('goals.json');
+
+// Get goals by user ID
+const getGoalsByUserId = (userId) => {
+    const goals = getGoals();
+    return goals.filter(g => g.userId === userId);
+};
+
+// Get goal by ID and user ID
+const getGoalById = (id, userId) => {
+    const goals = getGoals();
+    return goals.find(g => g.id === id && g.userId === userId);
+};
+
+// Add new goal
+const addGoal = (goal) => {
+    const goals = getGoals();
+    goals.push(goal);
+    return writeData('goals.json', goals);
+};
+
+// Update goal
+const updateGoal = (id, updatedGoal) => {
+    const goals = getGoals();
+    const index = goals.findIndex(g => g.id === id);
+    if (index !== -1) {
+        goals[index] = { ...goals[index], ...updatedGoal, id };
+        return writeData('goals.json', goals);
+    }
+    return false;
+};
+
+// Delete goal
+const deleteGoal = (id) => {
+    const goals = getGoals();
+    const filteredGoals = goals.filter(g => g.id !== id);
+    return writeData('goals.json', filteredGoals);
+};
+
 module.exports = {
     initDataFiles,
     getUsers,
@@ -313,10 +447,13 @@ module.exports = {
     updateUserSettings,
     getNotes,
     getNotesByUserId,
+    getArchivedNotesByUserId,
     getNoteById,
     addNote,
     updateNote,
     deleteNote,
+    archiveNote,
+    unarchiveNote,
     completeAllNotes,
     getUpcomingReminders,
     markReminderSent,
@@ -330,5 +467,19 @@ module.exports = {
     addIdea,
     updateIdea,
     deleteIdea,
-    deleteAllIdeasByUserId
+    deleteAllIdeasByUserId,
+    // Diaries exports
+    getDiaries,
+    getDiariesByUserId,
+    getDiaryById,
+    addDiary,
+    updateDiary,
+    deleteDiary,
+    // Goals exports
+    getGoals,
+    getGoalsByUserId,
+    getGoalById,
+    addGoal,
+    updateGoal,
+    deleteGoal
 };

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>智能笔记 - Smart Notes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
@@ -49,13 +52,17 @@
                     <i class="fas fa-lightbulb"></i>
                     <span>想法记录</span>
                 </a>
+                <a href="#" class="nav-item" data-page="diary">
+                    <i class="fas fa-book-open"></i>
+                    <span>日记</span>
+                </a>
+                <a href="#" class="nav-item" data-page="goals">
+                    <i class="fas fa-mountain"></i>
+                    <span>长期目标</span>
+                </a>
                 <a href="#" class="nav-item" data-page="timeline">
                     <i class="fas fa-calendar-alt"></i>
                     <span>时光看板</span>
-                </a>
-                <a href="#" class="nav-item" data-page="ai">
-                    <i class="fas fa-robot"></i>
-                    <span>AI 助手</span>
                 </a>
             </nav>
 
@@ -116,8 +123,47 @@
                                     <span class="stat-label">进行中</span>
                                 </div>
                             </div>
+                            <div class="stat-card archived">
+                                <div class="stat-icon"><i class="fas fa-archive"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="archivedCount">0</span>
+                                    <span class="stat-label">已归档</span>
+                                </div>
+                            </div>
                         </div>
                     </header>
+
+                    <!-- 四象限快捷卡片 -->
+                    <div class="quadrant-cards" id="quadrantCards">
+                        <div class="quadrant-card q1" data-quadrant="q1">
+                            <div class="quadrant-card-icon"><i class="fas fa-fire"></i></div>
+                            <div class="quadrant-card-info">
+                                <span class="quadrant-card-count" id="q1Count">0</span>
+                                <span class="quadrant-card-label">紧急重要</span>
+                            </div>
+                        </div>
+                        <div class="quadrant-card q2" data-quadrant="q2">
+                            <div class="quadrant-card-icon"><i class="fas fa-calendar-check"></i></div>
+                            <div class="quadrant-card-info">
+                                <span class="quadrant-card-count" id="q2Count">0</span>
+                                <span class="quadrant-card-label">计划安排</span>
+                            </div>
+                        </div>
+                        <div class="quadrant-card q3" data-quadrant="q3">
+                            <div class="quadrant-card-icon"><i class="fas fa-user-tag"></i></div>
+                            <div class="quadrant-card-info">
+                                <span class="quadrant-card-count" id="q3Count">0</span>
+                                <span class="quadrant-card-label">委托他人</span>
+                            </div>
+                        </div>
+                        <div class="quadrant-card q4" data-quadrant="q4">
+                            <div class="quadrant-card-icon"><i class="fas fa-inbox"></i></div>
+                            <div class="quadrant-card-info">
+                                <span class="quadrant-card-count" id="q4Count">0</span>
+                                <span class="quadrant-card-label">可以推迟</span>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Action Bar -->
                     <div class="action-bar">
@@ -126,6 +172,18 @@
                             <span>新建待办</span>
                         </button>
                         <div class="action-group">
+                            <!-- 视图切换 -->
+                            <div class="view-toggle" id="viewToggle">
+                                <button class="view-btn active" data-view="list" title="列表视图">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                                <button class="view-btn" data-view="matrix" title="矩阵视图">
+                                    <i class="fas fa-th-large"></i>
+                                </button>
+                            </div>
+                            <button id="viewArchivedBtn" class="btn btn-ghost" title="归档箱">
+                                <i class="fas fa-archive"></i>
+                            </button>
                             <button id="completeAllBtn" class="btn btn-ghost" title="一键完成所有">
                                 <i class="fas fa-check-double"></i>
                             </button>
@@ -139,7 +197,7 @@
                     </div>
 
                     <!-- Filters & Search -->
-                    <div class="filters-bar">
+                    <div class="filters-bar" id="filtersBar">
                         <div class="search-wrapper">
                             <i class="fas fa-search"></i>
                             <input type="text" id="searchInput" placeholder="搜索待办事项...">
@@ -166,38 +224,46 @@
                         </div>
                     </div>
 
-                    <!-- Notes Grid -->
-                    <div id="notesContainer" class="notes-grid"></div>
+                    <!-- 列表视图 -->
+                    <div class="notes-view-list" id="notesViewList">
+                        <!-- Notes Grid -->
+                        <div id="notesContainer" class="notes-grid"></div>
 
-                    <!-- Empty State -->
-                    <div id="emptyState" class="empty-state" style="display: none;">
-                        <div class="empty-icon">
-                            <i class="fas fa-clipboard-list"></i>
+                        <!-- Empty State -->
+                        <div id="emptyState" class="empty-state" style="display: none;">
+                            <div class="empty-icon">
+                                <i class="fas fa-clipboard-list"></i>
+                            </div>
+                            <h3>暂无待办事项</h3>
+                            <p>点击"新建待办"开始记录您的任务</p>
+                            <button class="btn btn-primary" onclick="document.getElementById('addNoteBtn').click()">
+                                <i class="fas fa-plus"></i> 创建第一个待办
+                            </button>
                         </div>
-                        <h3>暂无待办事项</h3>
-                        <p>点击"新建待办"开始记录您的任务</p>
-                        <button class="btn btn-primary" onclick="document.getElementById('addNoteBtn').click()">
-                            <i class="fas fa-plus"></i> 创建第一个待办
-                        </button>
+
+                        <!-- Pagination -->
+                        <div id="paginationContainer" class="pagination" style="display: none;">
+                            <select id="perPageSelect" class="select-minimal">
+                                <option value="6">6条/页</option>
+                                <option value="9" selected>9条/页</option>
+                                <option value="12">12条/页</option>
+                                <option value="15">15条/页</option>
+                            </select>
+                            <div class="page-controls">
+                                <button id="prevPage" class="btn btn-icon" disabled>
+                                    <i class="fas fa-chevron-left"></i>
+                                </button>
+                                <span class="page-info" id="pageInfo">第 1 / 1 页</span>
+                                <button id="nextPage" class="btn btn-icon">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Pagination -->
-                    <div id="paginationContainer" class="pagination" style="display: none;">
-                        <select id="perPageSelect" class="select-minimal">
-                            <option value="6">6条/页</option>
-                            <option value="9" selected>9条/页</option>
-                            <option value="12">12条/页</option>
-                            <option value="15">15条/页</option>
-                        </select>
-                        <div class="page-controls">
-                            <button id="prevPage" class="btn btn-icon" disabled>
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
-                            <span class="page-info" id="pageInfo">第 1 / 1 页</span>
-                            <button id="nextPage" class="btn btn-icon">
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
-                        </div>
+                    <!-- 矩阵视图 -->
+                    <div class="notes-view-matrix" id="notesViewMatrix" style="display: none;">
+                        <div id="fullMatrixContainer" class="full-matrix-container"></div>
                     </div>
                 </div>
             </div>
@@ -236,6 +302,9 @@
                             <span>记录想法</span>
                         </button>
                         <div class="action-group">
+                            <button id="randomIdeaBtn" class="btn btn-ghost" title="随机灵感">
+                                <i class="fas fa-dice"></i>
+                            </button>
                             <button id="exportIdeasBtn" class="btn btn-ghost" title="导出想法">
                                 <i class="fas fa-download"></i>
                             </button>
@@ -290,6 +359,321 @@
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diary Page -->
+            <div class="page" id="diaryPage">
+                <div class="page-container page-container--wide diary-page-container">
+                    <!-- Page Header -->
+                    <header class="page-header">
+                        <div class="page-title">
+                            <h1><i class="fas fa-book-open"></i> 日记</h1>
+                            <p class="page-subtitle">记录当下的心情与成长轨迹</p>
+                        </div>
+                        <div class="header-stats">
+                            <div class="stat-card diary">
+                                <div class="stat-icon"><i class="fas fa-feather"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="diaryTotalCount">0</span>
+                                    <span class="stat-label">累计篇数</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="diaryMonthCount">0</span>
+                                    <span class="stat-label">本月记录</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon"><i class="fas fa-fire"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="diaryStreakCount">0</span>
+                                    <span class="stat-label">连续记录</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Action Bar -->
+                    <div class="action-bar diary-action-bar">
+                        <button id="addDiaryBtn" class="btn btn-primary btn-diary">
+                            <i class="fas fa-pen-nib"></i>
+                            <span>写日记</span>
+                        </button>
+                        <div class="action-group diary-action-group">
+                            <button id="diaryTodayBtn" class="btn btn-ghost">
+                                <i class="fas fa-calendar-day"></i>
+                                <span>今天</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="diary-layout">
+                        <section class="diary-list-panel">
+                            <div class="panel-header diary-panel-header">
+                                <div>
+                                    <h2>日记书架</h2>
+                                    <p class="panel-subtitle" id="diaryListCount">共 0 篇</p>
+                                </div>
+                            </div>
+
+                            <!-- Filters & Search -->
+                            <div class="filters-bar diary-filters">
+                                <div class="search-wrapper">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="diarySearchInput" placeholder="搜索日记、标签或心情...">
+                                </div>
+                                <div class="filter-selects">
+                                    <select id="diaryMoodFilter" class="select-minimal">
+                                        <option value="">全部心情</option>
+                                        <option value="开心">开心</option>
+                                        <option value="平静">平静</option>
+                                        <option value="低落">低落</option>
+                                        <option value="焦虑">焦虑</option>
+                                        <option value="兴奋">兴奋</option>
+                                    </select>
+                                    <select id="diaryRangeFilter" class="select-minimal">
+                                        <option value="all">全部时间</option>
+                                        <option value="7d">近7天</option>
+                                        <option value="30d">近30天</option>
+                                        <option value="year">今年</option>
+                                    </select>
+                                    <select id="diarySortSelect" class="select-minimal">
+                                        <option value="newest">最新记录</option>
+                                        <option value="oldest">最早记录</option>
+                                    </select>
+                                    <div class="date-filter">
+                                        <input type="date" id="diaryDateFilter" class="input-minimal" aria-label="选择日期">
+                                        <button id="diaryDateClearBtn" class="btn btn-icon" title="清除日期过滤">
+                                            <i class="fas fa-xmark"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Diary List -->
+                            <div id="diaryContainer" class="diary-list diary-list-compact"></div>
+
+                            <!-- Empty State -->
+                            <div id="diaryEmptyState" class="empty-state" style="display: none;">
+                                <div class="empty-icon diary">
+                                    <i class="fas fa-book-open"></i>
+                                </div>
+                                <h3>还没有记录任何日记</h3>
+                                <p>从今天开始，为自己留下一段文字</p>
+                                <button class="btn btn-primary btn-diary" onclick="document.getElementById('addDiaryBtn').click()">
+                                    <i class="fas fa-pen-nib"></i> 写下第一篇
+                                </button>
+                            </div>
+
+                            <!-- Pagination -->
+                            <div id="diaryPaginationContainer" class="pagination" style="display: none;">
+                                <select id="diaryPerPageSelect" class="select-minimal">
+                                    <option value="6">6条/页</option>
+                                    <option value="9" selected>9条/页</option>
+                                    <option value="12">12条/页</option>
+                                </select>
+                                <div class="page-controls">
+                                    <button id="diaryPrevPage" class="btn btn-icon" disabled>
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <span class="page-info" id="diaryPageInfo">第 1 / 1 页</span>
+                                    <button id="diaryNextPage" class="btn btn-icon">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <aside class="diary-detail-panel" id="diaryDetailPanel">
+                            <div class="diary-detail">
+                                <div class="diary-detail-header">
+                                    <div>
+                                        <div class="diary-detail-title" id="diaryDetailTitle">请选择日记</div>
+                                        <div class="diary-detail-date" id="diaryDetailDate"></div>
+                                    </div>
+                                    <div class="diary-detail-actions">
+                                        <div class="diary-detail-nav">
+                                            <button id="diaryPrevBtn" class="btn btn-icon" title="上一篇">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </button>
+                                            <button id="diaryNextBtn" class="btn btn-icon" title="下一篇">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </button>
+                                        </div>
+                                        <button class="note-action-btn edit" id="diaryDetailEditBtn">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="note-action-btn delete" id="diaryDetailDeleteBtn">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="diary-detail-meta" id="diaryDetailMeta"></div>
+                                <div class="diary-detail-body">
+                                    <div id="diaryDetailContent" class="markdown-body"></div>
+                                    <div id="diaryDetailEmpty" class="diary-detail-empty">
+                                        <i class="fas fa-book-open"></i>
+                                        <p>选择左侧日记进入阅读</p>
+                                        <button class="btn btn-primary btn-diary" id="diaryDetailWriteBtn">
+                                            <i class="fas fa-pen-nib"></i> 写日记
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Goals Page -->
+            <div class="page" id="goalsPage">
+                <div class="page-container page-container--wide goals-page-container">
+                    <!-- Page Header -->
+                    <header class="page-header">
+                        <div class="page-title">
+                            <h1><i class="fas fa-mountain"></i> 长期目标</h1>
+                            <p class="page-subtitle">将愿景拆解为轨迹，用灵感持续推动</p>
+                        </div>
+                        <div class="header-stats">
+                            <div class="stat-card goal">
+                                <div class="stat-icon"><i class="fas fa-bullseye"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="goalsTotalCount">0</span>
+                                    <span class="stat-label">目标总数</span>
+                                </div>
+                            </div>
+                            <div class="stat-card success">
+                                <div class="stat-icon"><i class="fas fa-rocket"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="goalsActiveCount">0</span>
+                                    <span class="stat-label">进行中</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon"><i class="fas fa-lightbulb"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="goalsRecordCount">0</span>
+                                    <span class="stat-label">灵感记录</span>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon"><i class="fas fa-flag-checkered"></i></div>
+                                <div class="stat-info">
+                                    <span class="stat-value" id="goalsCompletedCount">0</span>
+                                    <span class="stat-label">已完成</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Action Bar -->
+                    <div class="action-bar goals-action-bar">
+                        <button id="addGoalBtn" class="btn btn-primary btn-goal">
+                            <i class="fas fa-plus"></i>
+                            <span>新建目标</span>
+                        </button>
+                    </div>
+
+                    <div class="goals-layout">
+                        <section class="goals-list-panel">
+                            <div class="panel-header goals-panel-header">
+                                <div>
+                                    <h2>目标索引</h2>
+                                    <p class="panel-subtitle" id="goalsListCount">共 0 项</p>
+                                </div>
+                            </div>
+
+                            <!-- Filters & Search -->
+                            <div class="filters-bar goals-filters">
+                                <div class="search-wrapper">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="goalSearchInput" placeholder="搜索目标、标签或记录...">
+                                </div>
+                                <div class="filter-selects">
+                                    <select id="goalStatusFilter" class="select-minimal">
+                                        <option value="">全部状态</option>
+                                        <option value="active">进行中</option>
+                                        <option value="paused">暂停</option>
+                                        <option value="completed">已完成</option>
+                                    </select>
+                                    <select id="goalRecordTypeFilter" class="select-minimal">
+                                        <option value="">全部记录</option>
+                                        <option value="inspiration">灵感</option>
+                                        <option value="insight">洞察</option>
+                                        <option value="resource">资料</option>
+                                    </select>
+                                    <select id="goalSortSelect" class="select-minimal">
+                                        <option value="updated">最近更新</option>
+                                        <option value="created">最早创建</option>
+                                        <option value="progress">进度优先</option>
+                                        <option value="targetDate">目标日期</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Goals List -->
+                            <div id="goalsContainer" class="goals-board goals-board-compact"></div>
+
+                            <!-- Empty State -->
+                            <div id="goalsEmptyState" class="empty-state" style="display: none;">
+                                <div class="empty-icon goal">
+                                    <i class="fas fa-mountain"></i>
+                                </div>
+                                <h3>还没有创建任何目标</h3>
+                                <p>建立一个长期愿景，再用灵感和资料逐步靠近</p>
+                                <button class="btn btn-primary btn-goal" onclick="document.getElementById('addGoalBtn').click()">
+                                    <i class="fas fa-plus"></i> 创建第一个目标
+                                </button>
+                            </div>
+                        </section>
+
+                        <aside class="goals-detail-panel" id="goalDetailPanel">
+                            <div class="goal-detail">
+                                <div class="goal-detail-header">
+                                    <div>
+                                        <span class="goal-status active" id="goalDetailStatus">进行中</span>
+                                        <h3 class="goal-detail-title" id="goalDetailTitle">请选择目标</h3>
+                                        <p class="goal-detail-vision" id="goalDetailVision"></p>
+                                    </div>
+                                    <div class="goal-detail-actions">
+                                        <button class="note-action-btn edit" id="goalDetailEditBtn">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="note-action-btn delete" id="goalDetailDeleteBtn">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="goal-detail-meta" id="goalDetailMeta"></div>
+                                <div class="goal-detail-body">
+                                    <div class="goal-detail-progress" id="goalDetailProgress">
+                                        <div class="goal-progress">
+                                            <div class="goal-progress-bar">
+                                                <div class="goal-progress-fill" id="goalDetailProgressFill"></div>
+                                            </div>
+                                            <span class="goal-progress-label" id="goalDetailProgressLabel">0%</span>
+                                        </div>
+                                    </div>
+                                    <div class="goal-detail-records">
+                                        <div class="goal-records-header">
+                                            <span id="goalDetailRecordLabel">目标记录</span>
+                                            <button class="btn btn-ghost" id="goalDetailAddRecordBtn">
+                                                <i class="fas fa-plus"></i> 添加记录
+                                            </button>
+                                        </div>
+                                        <div id="goalDetailRecords" class="goal-records-list"></div>
+                                        <div id="goalDetailEmpty" class="goal-detail-empty">
+                                            <i class="fas fa-folder-open"></i>
+                                            <p>选择左侧目标查看全部记录</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
                 </div>
             </div>
@@ -385,24 +769,8 @@
                             </div>
                         </div>
 
-                        <!-- Bottom Section: Heatmap + Week Summary -->
+                        <!-- Bottom Section: Week Summary -->
                         <div class="timeline-bottom">
-                            <!-- Activity Heatmap -->
-                            <div class="heatmap-card">
-                                <h4><i class="fas fa-fire"></i> 活动热力图</h4>
-                                <p class="heatmap-subtitle">最近20周的活动记录</p>
-                                <div class="heatmap-container" id="heatmapContainer"></div>
-                                <div class="heatmap-legend">
-                                    <span>少</span>
-                                    <div class="heatmap-level level-0"></div>
-                                    <div class="heatmap-level level-1"></div>
-                                    <div class="heatmap-level level-2"></div>
-                                    <div class="heatmap-level level-3"></div>
-                                    <div class="heatmap-level level-4"></div>
-                                    <span>多</span>
-                                </div>
-                            </div>
-
                             <!-- Week Summary -->
                             <div class="week-summary-card">
                                 <h4><i class="fas fa-chart-line"></i> 本周概览</h4>
@@ -438,312 +806,70 @@
                                 </div>
                                 <div class="week-chart" id="weekChart"></div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- AI Page -->
-            <div id="aiPage" class="page">
-                <div class="ai-page-wrapper">
-                    <!-- Mobile Tab Bar -->
-                    <div class="ai-mobile-tabs">
-                        <button class="ai-mobile-tab active" data-tab="chat">
-                            <i class="fas fa-comments"></i>
-                            <span>对话</span>
-                        </button>
-                        <button class="ai-mobile-tab" data-tab="create">
-                            <i class="fas fa-wand-magic-sparkles"></i>
-                            <span>快捷创建</span>
-                        </button>
-                        <button class="ai-mobile-tab" data-tab="settings">
-                            <i class="fas fa-sliders"></i>
-                            <span>设置</span>
-                        </button>
-                    </div>
-
-                    <div class="ai-layout">
-                        <!-- AI Sidebar -->
-                        <div class="ai-sidebar">
-                            <div class="ai-sidebar-header">
-                                <div class="ai-brand">
-                                    <div class="ai-brand-icon">
-                                        <i class="fas fa-robot"></i>
-                                    </div>
-                                    <div class="ai-brand-text">
-                                        <h3>AI 助手</h3>
-                                        <span class="ai-status">
-                                            <i class="fas fa-circle"></i>
-                                            在线
-                                        </span>
-                                    </div>
-                                </div>
-                                <button class="ai-new-chat-btn" id="newChatBtn" title="新建对话">
-                                    <i class="fas fa-plus"></i>
-                                    <span>新对话</span>
-                                </button>
-                            </div>
-                            <div class="ai-conversations" id="aiConversations">
-                                <!-- 对话列表动态生成 -->
-                            </div>
-                            <div class="ai-sidebar-footer">
-                                <button class="ai-tab-btn active" data-tab="chat">
-                                    <i class="fas fa-comments"></i>
-                                    <span>对话</span>
-                                </button>
-                                <button class="ai-tab-btn" data-tab="create">
-                                    <i class="fas fa-wand-magic-sparkles"></i>
-                                    <span>快捷</span>
-                                </button>
-                                <button class="ai-tab-btn" data-tab="settings">
-                                    <i class="fas fa-sliders"></i>
-                                    <span>设置</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- AI Main Content -->
-                        <div class="ai-main">
-                            <!-- Chat Tab -->
-                            <div class="ai-tab-content active" id="aiChatTab">
-                                <div class="ai-chat-header">
-                                    <div class="ai-chat-info">
-                                        <h2 id="currentChatTitle">开始新对话</h2>
-                                        <span class="ai-chat-subtitle">与 AI 助手交流</span>
-                                    </div>
-                                    <div class="ai-chat-actions">
-                                        <button class="ai-action-btn" id="deleteChatBtn" title="删除对话" style="display: none;">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="ai-messages" id="aiMessages">
-                                    <div class="ai-welcome">
-                                        <div class="ai-welcome-avatar">
-                                            <div class="ai-welcome-icon">
-                                                <i class="fas fa-robot"></i>
-                                            </div>
-                                            <div class="ai-welcome-glow"></div>
+                            <!-- Month Insights -->
+                            <div class="month-insights-card">
+                                <h4><i class="fas fa-compass"></i> 本月洞察</h4>
+                                <div class="insight-grid">
+                                    <div class="insight-item">
+                                        <div class="insight-item-icon">
+                                            <i class="fas fa-bolt"></i>
                                         </div>
-                                        <h3>你好，我是 AI 助手</h3>
-                                        <p>我可以帮你管理待办事项、规划任务、分析效率趋势，随时向我提问吧</p>
-                                        <div class="ai-suggestions">
-                                            <span class="ai-suggestions-label">快速开始</span>
-                                            <div class="ai-quick-actions">
-                                                <button class="ai-quick-btn" data-prompt="今天我应该做什么？">
-                                                    <i class="fas fa-sun"></i>
-                                                    <span>今日规划</span>
-                                                </button>
-                                                <button class="ai-quick-btn" data-prompt="总结一下我这周的情况">
-                                                    <i class="fas fa-chart-pie"></i>
-                                                    <span>周报总结</span>
-                                                </button>
-                                                <button class="ai-quick-btn" data-prompt="帮我分析一下待办优先级">
-                                                    <i class="fas fa-list-check"></i>
-                                                    <span>优先级分析</span>
-                                                </button>
-                                                <button class="ai-quick-btn" data-prompt="给我一些提高效率的建议">
-                                                    <i class="fas fa-lightbulb"></i>
-                                                    <span>效率建议</span>
-                                                </button>
-                                            </div>
+                                        <div class="insight-item-info">
+                                            <span class="insight-item-value" id="monthActiveDays">0</span>
+                                            <span class="insight-item-label">活跃天数</span>
+                                        </div>
+                                    </div>
+                                    <div class="insight-item">
+                                        <div class="insight-item-icon idea">
+                                            <i class="fas fa-wave-square"></i>
+                                        </div>
+                                        <div class="insight-item-info">
+                                            <span class="insight-item-value" id="monthAvgActivity">0</span>
+                                            <span class="insight-item-label">日均记录</span>
+                                        </div>
+                                    </div>
+                                    <div class="insight-item">
+                                        <div class="insight-item-icon success">
+                                            <i class="fas fa-list-check"></i>
+                                        </div>
+                                        <div class="insight-item-info">
+                                            <span class="insight-item-value" id="monthTotalNotes">0</span>
+                                            <span class="insight-item-label">新建任务</span>
+                                        </div>
+                                    </div>
+                                    <div class="insight-item">
+                                        <div class="insight-item-icon warning">
+                                            <i class="fas fa-lightbulb"></i>
+                                        </div>
+                                        <div class="insight-item-info">
+                                            <span class="insight-item-value" id="monthTotalIdeas">0</span>
+                                            <span class="insight-item-label">记录想法</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="ai-input-area">
-                                    <div class="ai-input-wrapper">
-                                        <textarea id="aiInput" placeholder="输入消息，按 Enter 发送..." rows="1"></textarea>
-                                        <button class="ai-send-btn" id="aiSendBtn">
-                                            <i class="fas fa-arrow-up"></i>
-                                        </button>
-                                    </div>
-                                    <div class="ai-input-hint">
-                                        <span>按 Shift+Enter 换行</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Quick Create Tab -->
-                            <div class="ai-tab-content" id="aiCreateTab">
-                                <div class="ai-create-container">
-                                    <div class="ai-create-header">
-                                        <div class="ai-create-icon">
-                                            <i class="fas fa-wand-magic-sparkles"></i>
+                                <div class="insight-progress-group">
+                                    <div class="insight-progress">
+                                        <div class="insight-progress-header">
+                                            <span>任务完成率</span>
+                                            <span class="insight-progress-value" id="monthCompletionRate">0%</span>
                                         </div>
-                                        <h2>智能快捷创建</h2>
-                                        <p>用自然语言描述，AI 帮你智能解析并创建任务或想法</p>
-                                    </div>
-
-                                    <div class="ai-create-content">
-                                        <div class="ai-create-card">
-                                            <div class="ai-create-examples">
-                                                <span class="examples-label">试试这样说</span>
-                                                <div class="example-chips">
-                                                    <button class="example-chip" data-example="明天下午3点和李总开会讨论Q2预算，很重要">
-                                                        <i class="fas fa-calendar"></i> 明天下午3点开会...
-                                                    </button>
-                                                    <button class="example-chip" data-example="下周五之前完成项目报告">
-                                                        <i class="fas fa-file-alt"></i> 下周五完成报告
-                                                    </button>
-                                                    <button class="example-chip" data-example="我有个想法：开发一个自动整理文件的工具">
-                                                        <i class="fas fa-lightbulb"></i> 记录一个想法...
-                                                    </button>
-                                                    <button class="example-chip" data-example="每天早上9点提醒我做晨间冥想">
-                                                        <i class="fas fa-bell"></i> 每日提醒事项
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div class="ai-create-mode">
-                                                <label class="toggle-switch">
-                                                    <input type="checkbox" id="autoCreateMode">
-                                                    <span class="toggle-slider"></span>
-                                                </label>
-                                                <span class="mode-label">自动创建模式</span>
-                                                <span class="mode-desc">开启后按 Enter 直接解析并创建，无需确认</span>
-                                            </div>
-
-                                            <div class="ai-create-input-section">
-                                                <div class="ai-input-wrapper-create">
-                                                    <label><i class="fas fa-pen"></i> 输入描述</label>
-                                                    <div class="ai-create-input">
-                                                        <textarea id="quickCreateInput" placeholder="描述你想创建的任务或想法...&#10;&#10;例如：&#10;• 明天下午3点开会，很重要&#10;• 周末去超市买菜&#10;• 我有个想法：做一个新项目" rows="6"></textarea>
-                                                        <div class="ai-create-buttons">
-                                                            <button class="ai-parse-btn" id="parseBtn">
-                                                                <i class="fas fa-eye"></i>
-                                                                <span>预览解析</span>
-                                                            </button>
-                                                            <button class="ai-create-btn" id="directCreateBtn">
-                                                                <i class="fas fa-bolt"></i>
-                                                                <span>直接创建</span>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div class="ai-input-wrapper-create">
-                                                    <label><i class="fas fa-sparkles"></i> 解析预览</label>
-                                                    <div class="ai-parse-result" id="parseResult">
-                                                        <div class="parse-empty-state" id="parseEmptyState">
-                                                            <i class="fas fa-magic"></i>
-                                                            <p>输入描述后点击"预览解析"</p>
-                                                            <p>AI 将智能识别任务信息</p>
-                                                        </div>
-                                                        <div class="parse-content" id="parseContent" style="display: none;">
-                                                            <div class="parse-result-header">
-                                                                <i class="fas fa-check-circle"></i>
-                                                                <span>解析完成</span>
-                                                            </div>
-                                                            <div class="parse-preview">
-                                                                <div class="parse-type" id="parseType"></div>
-                                                                <div class="parse-fields" id="parseFields"></div>
-                                                            </div>
-                                                            <div class="parse-actions">
-                                                                <button class="btn-cancel" id="cancelParseBtn">
-                                                                    <i class="fas fa-times"></i>
-                                                                    取消
-                                                                </button>
-                                                                <button class="btn-confirm" id="confirmCreateBtn">
-                                                                    <i class="fas fa-check"></i>
-                                                                    确认创建
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        <div class="insight-progress-bar">
+                                            <div class="insight-progress-fill" id="monthCompletionBar" style="width: 0%;"></div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <!-- Settings Tab -->
-                            <div class="ai-tab-content" id="aiSettingsTab">
-                                <div class="ai-settings-container">
-                                    <div class="ai-settings-header">
-                                        <div class="ai-settings-icon">
-                                            <i class="fas fa-sliders"></i>
+                                    <div class="insight-progress idea">
+                                        <div class="insight-progress-header">
+                                            <span>灵感占比</span>
+                                            <span class="insight-progress-value" id="monthIdeaRate">0%</span>
                                         </div>
-                                        <h2>AI 服务设置</h2>
-                                        <p>配置 AI 服务的连接参数，开始智能对话体验</p>
-                                    </div>
-
-                                    <div class="ai-settings-content">
-                                        <div class="settings-card">
-                                            <div class="settings-card-header">
-                                                <i class="fas fa-server"></i>
-                                                <span>API 配置</span>
-                                            </div>
-                                            <div class="settings-form">
-                                                <div class="form-row">
-                                                    <div class="form-group">
-                                                        <label>
-                                                            <i class="fas fa-link"></i>
-                                                            Base URL
-                                                        </label>
-                                                        <input type="text" id="aiBaseUrl" placeholder="https://api.openai.com/v1">
-                                                        <span class="form-hint">API 服务地址，支持 OpenAI 兼容接口</span>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label>
-                                                            <i class="fas fa-microchip"></i>
-                                                            模型名称
-                                                        </label>
-                                                        <input type="text" id="aiModel" placeholder="gpt-4o-mini">
-                                                        <span class="form-hint">使用的 AI 模型</span>
-                                                    </div>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label>
-                                                        <i class="fas fa-key"></i>
-                                                        API Key
-                                                    </label>
-                                                    <div class="input-with-btn">
-                                                        <input type="password" id="aiApiKey" placeholder="sk-xxxx...">
-                                                        <button type="button" class="btn-toggle-key" id="toggleApiKey">
-                                                            <i class="fas fa-eye"></i>
-                                                        </button>
-                                                    </div>
-                                                    <span class="form-hint">你的 API 密钥，将安全存储在服务器</span>
-                                                </div>
-                                                <div class="form-group">
-                                                    <label class="switch-label">
-                                                        <span class="switch-text">
-                                                            <i class="fas fa-power-off"></i>
-                                                            启用 AI 服务
-                                                        </span>
-                                                        <div class="switch-toggle">
-                                                            <input type="checkbox" id="aiEnabled">
-                                                            <span class="switch-slider"></span>
-                                                        </div>
-                                                    </label>
-                                                </div>
-                                                <div class="settings-actions">
-                                                    <button class="btn-test" id="testConnectionBtn">
-                                                        <i class="fas fa-plug"></i>
-                                                        测试连接
-                                                    </button>
-                                                    <button class="btn-save" id="saveAiConfigBtn">
-                                                        <i class="fas fa-save"></i>
-                                                        保存配置
-                                                    </button>
-                                                </div>
-                                                <div class="connection-status" id="connectionStatus"></div>
-                                            </div>
-                                        </div>
-
-                                        <div class="settings-help">
-                                            <h4><i class="fas fa-circle-question"></i> 如何获取 API Key？</h4>
-                                            <ul>
-                                                <li>访问 <strong>OpenAI</strong>: platform.openai.com</li>
-                                                <li>或使用其他兼容 OpenAI 接口的服务</li>
-                                                <li>创建 API Key 并复制到上方输入框</li>
-                                            </ul>
+                                        <div class="insight-progress-bar">
+                                            <div class="insight-progress-fill" id="monthIdeaBar" style="width: 0%;"></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -833,6 +959,11 @@
                 <div class="form-group">
                     <label for="noteTags"><i class="fas fa-tags"></i> 标签</label>
                     <input type="text" id="noteTags" placeholder="输入标签，用逗号分隔">
+                </div>
+
+                <!-- 子任务编辑器 -->
+                <div class="form-group" id="subtasksEditor">
+                    <!-- 由 JS 动态渲染 -->
                 </div>
 
                 <div class="form-row">
@@ -934,6 +1065,219 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Diary Modal -->
+    <div id="diaryModal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-diary">
+            <div class="modal-header">
+                <h2 id="diaryModalTitle">写日记</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="diaryForm" class="modal-body">
+                <div class="form-group">
+                    <label for="diaryTitle">
+                        <i class="fas fa-heading"></i> 标题
+                    </label>
+                    <input type="text" id="diaryTitle" placeholder="今天发生了什么？">
+                </div>
+
+                <div class="form-group">
+                    <label for="diaryContent">
+                        <i class="fas fa-pen"></i> 内容 <span class="required">*</span>
+                    </label>
+                    <textarea id="diaryContent" rows="6" required placeholder="写下你的心情和想法，支持Markdown格式"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="diaryMood"><i class="fas fa-face-smile"></i> 心情</label>
+                        <select id="diaryMood">
+                            <option value="开心">开心</option>
+                            <option value="平静" selected>平静</option>
+                            <option value="低落">低落</option>
+                            <option value="焦虑">焦虑</option>
+                            <option value="兴奋">兴奋</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="diaryWeather"><i class="fas fa-cloud-sun"></i> 天气</label>
+                        <input type="text" id="diaryWeather" placeholder="如：晴、雨">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="diaryDate"><i class="fas fa-calendar-alt"></i> 日期</label>
+                        <input type="date" id="diaryDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="diaryTags"><i class="fas fa-tags"></i> 标签</label>
+                        <input type="text" id="diaryTags" placeholder="用逗号分隔">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel">取消</button>
+                    <button type="submit" class="btn btn-primary btn-diary">
+                        <i class="fas fa-save"></i> 保存日记
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Goal Modal -->
+    <div id="goalModal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-goal">
+            <div class="modal-header">
+                <h2 id="goalModalTitle">新建目标</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="goalForm" class="modal-body">
+                <div class="form-group">
+                    <label for="goalTitle">
+                        <i class="fas fa-bullseye"></i> 目标名称 <span class="required">*</span>
+                    </label>
+                    <input type="text" id="goalTitle" required placeholder="例如：一年内完成一次马拉松">
+                </div>
+
+                <div class="form-group">
+                    <label for="goalVision"><i class="fas fa-star"></i> 愿景描述</label>
+                    <textarea id="goalVision" rows="4" placeholder="写下愿景、意义或动机"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="goalCategory"><i class="fas fa-folder-open"></i> 分类</label>
+                        <input type="text" id="goalCategory" list="goalCategoryList" placeholder="如：健康、职业、学习">
+                        <datalist id="goalCategoryList">
+                            <option value="健康">
+                            <option value="职业">
+                            <option value="学习">
+                            <option value="财务">
+                            <option value="生活">
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="goalStatus"><i class="fas fa-signal"></i> 状态</label>
+                        <select id="goalStatus">
+                            <option value="active">进行中</option>
+                            <option value="paused">暂停</option>
+                            <option value="completed">已完成</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="goalStartDate"><i class="fas fa-play"></i> 起始日期</label>
+                        <input type="date" id="goalStartDate">
+                    </div>
+                    <div class="form-group">
+                        <label for="goalTargetDate"><i class="fas fa-flag-checkered"></i> 目标日期</label>
+                        <input type="date" id="goalTargetDate">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="goalProgress"><i class="fas fa-chart-line"></i> 进度 (%)</label>
+                        <input type="number" id="goalProgress" min="0" max="100" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="goalTags"><i class="fas fa-tags"></i> 标签</label>
+                        <input type="text" id="goalTags" placeholder="用逗号分隔">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel">取消</button>
+                    <button type="submit" class="btn btn-primary btn-goal">
+                        <i class="fas fa-save"></i> 保存目标
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Goal Record Modal -->
+    <div id="goalRecordModal" class="modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-goal-record">
+            <div class="modal-header">
+                <h2 id="goalRecordModalTitle">添加记录</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="goalRecordForm" class="modal-body">
+                <div class="form-hint goal-record-hint">
+                    目标：<span id="goalRecordGoalName">-</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="goalRecordTitle">
+                        <i class="fas fa-heading"></i> 标题
+                    </label>
+                    <input type="text" id="goalRecordTitle" placeholder="为这条记录起个名字">
+                </div>
+
+                <div class="form-group">
+                    <label for="goalRecordContent">
+                        <i class="fas fa-pen"></i> 内容 <span class="required">*</span>
+                    </label>
+                    <textarea id="goalRecordContent" rows="5" required placeholder="记录灵感、洞察或资料"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="goalRecordType"><i class="fas fa-layer-group"></i> 类型</label>
+                        <select id="goalRecordType">
+                            <option value="inspiration">灵感</option>
+                            <option value="insight">洞察</option>
+                            <option value="resource">资料</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="goalRecordDate"><i class="fas fa-calendar-day"></i> 日期</label>
+                        <input type="date" id="goalRecordDate">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="goalRecordTags"><i class="fas fa-tags"></i> 标签</label>
+                    <input type="text" id="goalRecordTags" placeholder="用逗号分隔">
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary modal-cancel">取消</button>
+                    <button type="submit" class="btn btn-primary btn-goal">
+                        <i class="fas fa-save"></i> 保存记录
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Random Idea Modal -->
+    <div id="randomIdeaModal" class="modal random-idea-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-container modal-random-idea">
+            <div class="modal-header">
+                <h2><i class="fas fa-dice"></i> 随机灵感</h2>
+                <button class="modal-close" id="closeRandomIdeaBtn">&times;</button>
+            </div>
+            <div class="modal-body" id="randomIdeaContent">
+                <!-- 动态填充 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="closeRandomIdeaBtn2" onclick="document.getElementById('randomIdeaModal').classList.remove('show')">关闭</button>
+                <button type="button" class="btn btn-primary btn-idea" id="reshuffleIdeaBtn">
+                    <i class="fas fa-random"></i> 再来一条
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1080,19 +1424,51 @@
             <i class="fas fa-lightbulb"></i>
             <span>想法</span>
         </a>
+        <a href="#" class="bottom-nav-item" data-page="diary">
+            <i class="fas fa-book-open"></i>
+            <span>日记</span>
+        </a>
+        <a href="#" class="bottom-nav-item" data-page="goals">
+            <i class="fas fa-mountain"></i>
+            <span>目标</span>
+        </a>
         <a href="#" class="bottom-nav-item" data-page="timeline">
             <i class="fas fa-calendar-alt"></i>
             <span>时光</span>
         </a>
-        <a href="#" class="bottom-nav-item" data-page="ai">
-            <i class="fas fa-robot"></i>
-            <span>AI</span>
-        </a>
     </nav>
+
+    <!-- Quick Add FAB (Floating Action Button) -->
+    <div id="quickAddFab" class="fab-container">
+        <button class="fab-main" id="fabMainBtn" title="快速添加">
+            <i class="fas fa-plus"></i>
+        </button>
+        <div class="fab-menu" id="fabMenu">
+            <button class="fab-item fab-note" id="fabAddNote" title="新建待办">
+                <i class="fas fa-clipboard-check"></i>
+                <span class="fab-label">待办</span>
+            </button>
+            <button class="fab-item fab-idea" id="fabAddIdea" title="记录灵感">
+                <i class="fas fa-lightbulb"></i>
+                <span class="fab-label">灵感</span>
+            </button>
+            <button class="fab-item fab-diary" id="fabAddDiary" title="写日记">
+                <i class="fas fa-book-open"></i>
+                <span class="fab-label">日记</span>
+            </button>
+            <button class="fab-item fab-goal" id="fabAddGoal" title="新建目标">
+                <i class="fas fa-mountain"></i>
+                <span class="fab-label">目标</span>
+            </button>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="js/app.js"></script>
+    <!-- 模块化入口 -->
+    <script type="module" src="js/main.js"></script>
+    <!-- 兼容旧版本浏览器的回退 -->
+    <script nomodule src="js/app.js"></script>
 </body>
 </html>

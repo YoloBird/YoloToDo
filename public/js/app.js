@@ -28,6 +28,26 @@ const AppState = {
     editingIdeaId: null,
     selectedIdeaColor: null,
 
+    // Diaries state
+    allDiaries: [],
+    diarySearchQuery: '',
+    diaryMood: '',
+    diaryRange: 'all',
+    diarySort: 'newest',
+    diaryCurrentPage: 1,
+    diaryPerPage: 9,
+    editingDiaryId: null,
+
+    // Goals state
+    allGoals: [],
+    goalSearchQuery: '',
+    goalStatus: '',
+    goalRecordType: '',
+    goalSort: 'updated',
+    editingGoalId: null,
+    editingGoalRecordId: null,
+    goalRecordTargetId: null,
+
     // UI state
     activePage: 'notes',
     sidebarCollapsed: false
@@ -240,7 +260,7 @@ const MobileNav = {
     },
 
     updateTitle(page) {
-        const titles = { notes: '待办清单', ideas: '想法记录', timeline: '时光看板' };
+        const titles = { notes: '待办清单', ideas: '想法记录', diary: '日记', goals: '长期目标', timeline: '时光看板' };
         if (this.mobileTitle) {
             this.mobileTitle.textContent = titles[page] || '智能笔记';
         }
@@ -317,10 +337,12 @@ function switchPage(page) {
         loadNotes();
     } else if (page === 'ideas') {
         loadIdeas();
+    } else if (page === 'diary') {
+        loadDiaries();
+    } else if (page === 'goals') {
+        loadGoals();
     } else if (page === 'timeline') {
         loadTimeline();
-    } else if (page === 'ai') {
-        initAIPage();
     }
 }
 
@@ -701,9 +723,507 @@ async function deleteIdea(id) {
     }
 }
 
+// ==================== Diaries Functions ====================
+const DIARY_DEFAULT_MOODS = ['开心', '平静', '低落', '焦虑', '兴奋'];
+const DIARY_MOOD_ICON_MAP = {
+    开心: 'fa-face-smile',
+    平静: 'fa-face-meh',
+    低落: 'fa-face-frown',
+    焦虑: 'fa-face-grimace',
+    兴奋: 'fa-face-grin-stars'
+};
+
+function formatDateOnly(dateString) {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+function toDateInputValue(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return formatDateKey(date);
+}
+
+async function loadDiaries() {
+    try {
+        AppState.allDiaries = await apiCall('/diaries');
+        updateDiaryMoodFilter();
+        renderDiaries();
+        updateDiaryStats();
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('加载日记失败', 'error');
+    }
+}
+
+function updateDiaryStats() {
+    const total = AppState.allDiaries.length;
+    const now = new Date();
+    const monthCount = AppState.allDiaries.filter(d => {
+        const date = new Date(d.entryDate || d.createdAt);
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }).length;
+    const streak = calculateDiaryStreak();
+
+    document.getElementById('diaryTotalCount').textContent = total;
+    document.getElementById('diaryMonthCount').textContent = monthCount;
+    document.getElementById('diaryStreakCount').textContent = streak;
+}
+
+function calculateDiaryStreak() {
+    if (!AppState.allDiaries.length) return 0;
+    const dateKeys = new Set(
+        AppState.allDiaries.map(d => formatDateKey(new Date(d.entryDate || d.createdAt)))
+    );
+    const sortedDates = Array.from(dateKeys).sort((a, b) => new Date(b) - new Date(a));
+    let streak = 1;
+    for (let i = 1; i < sortedDates.length; i++) {
+        const prev = new Date(sortedDates[i - 1]);
+        const curr = new Date(sortedDates[i]);
+        const diffDays = (prev - curr) / (1000 * 60 * 60 * 24);
+        if (diffDays === 1) {
+            streak += 1;
+        } else {
+            break;
+        }
+    }
+    return streak;
+}
+
+function updateDiaryMoodFilter() {
+    const select = document.getElementById('diaryMoodFilter');
+    if (!select) return;
+    const moods = new Set(DIARY_DEFAULT_MOODS);
+    AppState.allDiaries.forEach(d => {
+        if (d.mood) moods.add(d.mood);
+    });
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">全部心情</option>';
+    Array.from(moods).forEach(mood => {
+        select.innerHTML += `<option value="${escapeHtml(mood)}">${escapeHtml(mood)}</option>`;
+    });
+    if (currentValue) select.value = currentValue;
+}
+
+function stripMarkdown(text) {
+    if (!text) return '';
+    return text
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/[`*_>#~\-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getFilteredDiaries() {
+    let filtered = [...AppState.allDiaries];
+    if (AppState.diaryMood) {
+        filtered = filtered.filter(d => d.mood === AppState.diaryMood);
+    }
+    if (AppState.diaryRange && AppState.diaryRange !== 'all') {
+        const now = new Date();
+        filtered = filtered.filter(d => {
+            const dateValue = new Date(d.entryDate || d.createdAt);
+            if (Number.isNaN(dateValue.getTime())) return false;
+            if (AppState.diaryRange === 'year') {
+                return dateValue.getFullYear() === now.getFullYear();
+            }
+            const windowDays = AppState.diaryRange === '7d' ? 7 : 30;
+            const diffDays = (now - dateValue) / (1000 * 60 * 60 * 24);
+            return diffDays >= 0 && diffDays <= windowDays;
+        });
+    }
+    if (AppState.diarySearchQuery) {
+        const q = AppState.diarySearchQuery.toLowerCase();
+        filtered = filtered.filter(d =>
+            (d.title && d.title.toLowerCase().includes(q)) ||
+            (d.content && d.content.toLowerCase().includes(q)) ||
+            (d.tags && d.tags.some(tag => tag.toLowerCase().includes(q))) ||
+            (d.mood && d.mood.toLowerCase().includes(q))
+        );
+    }
+    filtered.sort((a, b) => {
+        const dateA = new Date(a.entryDate || a.createdAt);
+        const dateB = new Date(b.entryDate || b.createdAt);
+        if (AppState.diarySort === 'oldest') return dateA - dateB;
+        return dateB - dateA;
+    });
+    return filtered;
+}
+
+function getPaginatedDiaries() {
+    const filtered = getFilteredDiaries();
+    const totalPages = Math.ceil(filtered.length / AppState.diaryPerPage) || 1;
+    if (AppState.diaryCurrentPage > totalPages) AppState.diaryCurrentPage = totalPages;
+    if (AppState.diaryCurrentPage < 1) AppState.diaryCurrentPage = 1;
+
+    const start = (AppState.diaryCurrentPage - 1) * AppState.diaryPerPage;
+    return {
+        diaries: filtered.slice(start, start + AppState.diaryPerPage),
+        totalDiaries: filtered.length,
+        totalPages
+    };
+}
+
+function renderDiaries() {
+    const container = document.getElementById('diaryContainer');
+    const emptyState = document.getElementById('diaryEmptyState');
+    const paginationContainer = document.getElementById('diaryPaginationContainer');
+    if (!container) return;
+
+    const { diaries, totalDiaries, totalPages } = getPaginatedDiaries();
+
+    if (totalDiaries === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        paginationContainer.style.display = 'none';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    paginationContainer.style.display = totalDiaries > AppState.diaryPerPage ? 'flex' : 'none';
+
+    if (totalDiaries > AppState.diaryPerPage) {
+        document.getElementById('diaryPageInfo').textContent = `第 ${AppState.diaryCurrentPage} / ${totalPages} 页`;
+        document.getElementById('diaryPrevPage').disabled = AppState.diaryCurrentPage === 1;
+        document.getElementById('diaryNextPage').disabled = AppState.diaryCurrentPage === totalPages;
+    }
+
+    container.innerHTML = diaries.map((diary, index) => createDiaryCard(diary, index)).join('');
+    diaries.forEach(diary => {
+        document.getElementById(`edit-diary-${diary.id}`)?.addEventListener('click', () => openEditDiaryModal(diary));
+        document.getElementById(`delete-diary-${diary.id}`)?.addEventListener('click', () => deleteDiary(diary.id));
+    });
+
+    container.querySelectorAll('.diary-toggle').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            const diaryId = toggle.dataset.diaryId;
+            if (!diaryId) return;
+            toggleDiaryCard(diaryId);
+        });
+    });
+}
+
+function createDiaryCard(diary, index) {
+    const mood = diary.mood || '平静';
+    const moodIcon = DIARY_MOOD_ICON_MAP[mood] || 'fa-face-smile';
+    const tags = diary.tags && diary.tags.length > 0
+        ? diary.tags.map(t => `<span class="badge badge-category"><i class="fas fa-tag"></i> ${escapeHtml(t)}</span>`).join('')
+        : '';
+    const weatherBadge = diary.weather
+        ? `<span class="badge badge-weather"><i class="fas fa-cloud-sun"></i> ${escapeHtml(diary.weather)}</span>`
+        : '';
+    const contentText = stripMarkdown(diary.content || '');
+    const shouldToggle = contentText.length > 240;
+    const contentHtml = diary.content
+        ? renderMarkdown(diary.content)
+        : '<p class="diary-card-placeholder">暂无内容</p>';
+
+    const toggleClass = shouldToggle ? ' has-toggle' : '';
+
+    return `
+        <div class="diary-card diary-review-card${toggleClass}" data-diary-id="${escapeHtml(String(diary.id))}" style="--stagger: ${index}">
+            <div class="diary-card-header">
+                <div class="diary-card-title">
+                    <i class="fas fa-book-open"></i>
+                    ${escapeHtml(diary.title || '无标题日记')}
+                </div>
+                <div class="diary-card-date">${formatDateOnly(diary.entryDate || diary.createdAt)}</div>
+            </div>
+            <div class="diary-card-meta">
+                <span class="badge badge-mood"><i class="fas ${moodIcon}"></i> ${escapeHtml(mood)}</span>
+                ${weatherBadge}
+                ${tags}
+            </div>
+            <div class="diary-card-content markdown-body">${contentHtml}</div>
+            <div class="diary-card-footer">
+                ${shouldToggle ? `<button class="diary-toggle" data-diary-id="${escapeHtml(String(diary.id))}">展开</button>` : ''}
+                <div class="diary-card-actions">
+                    <button class="note-action-btn edit" id="edit-diary-${diary.id}"><i class="fas fa-edit"></i></button>
+                    <button class="note-action-btn delete" id="delete-diary-${diary.id}"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function toggleDiaryCard(diaryId) {
+    const card = document.querySelector(`.diary-card[data-diary-id="${diaryId}"]`);
+    if (!card) return;
+    const isExpanded = card.classList.toggle('is-expanded');
+    const toggleBtn = card.querySelector('.diary-toggle');
+    if (toggleBtn) toggleBtn.textContent = isExpanded ? '收起' : '展开';
+}
+
+async function deleteDiary(id) {
+    if (!confirm('确定要删除这篇日记吗？')) return;
+    try {
+        await apiCall(`/diaries/${id}`, { method: 'DELETE' });
+        await loadDiaries();
+        showNotification('删除成功', 'success');
+    } catch (error) {
+        showNotification('删除失败', 'error');
+    }
+}
+
+function openEditDiaryModal(diary) {
+    AppState.editingDiaryId = diary.id;
+    document.getElementById('diaryModalTitle').textContent = '编辑日记';
+    document.getElementById('diaryTitle').value = diary.title || '';
+    document.getElementById('diaryContent').value = diary.content || '';
+    document.getElementById('diaryMood').value = diary.mood || '平静';
+    document.getElementById('diaryWeather').value = diary.weather || '';
+    document.getElementById('diaryTags').value = diary.tags ? diary.tags.join(', ') : '';
+    document.getElementById('diaryDate').value = toDateInputValue(diary.entryDate || diary.createdAt);
+    diaryModal.classList.add('show');
+}
+
+// ==================== Goals Functions ====================
+const GOAL_STATUS_LABELS = { active: '进行中', paused: '暂停', completed: '已完成' };
+const GOAL_TYPE_LABELS = { inspiration: '灵感', insight: '洞察', resource: '资料' };
+const GOAL_TYPE_ICONS = { inspiration: 'fa-lightbulb', insight: 'fa-brain', resource: 'fa-folder-open' };
+
+async function loadGoals() {
+    try {
+        AppState.allGoals = await apiCall('/goals');
+        renderGoals();
+        updateGoalsStats();
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('加载目标失败', 'error');
+    }
+}
+
+function updateGoalsStats() {
+    const total = AppState.allGoals.length;
+    const active = AppState.allGoals.filter(g => g.status === 'active').length;
+    const completed = AppState.allGoals.filter(g => g.status === 'completed').length;
+    const records = AppState.allGoals.reduce((sum, g) => sum + (g.records ? g.records.length : 0), 0);
+
+    document.getElementById('goalsTotalCount').textContent = total;
+    document.getElementById('goalsActiveCount').textContent = active;
+    document.getElementById('goalsRecordCount').textContent = records;
+    document.getElementById('goalsCompletedCount').textContent = completed;
+}
+
+function getFilteredGoals() {
+    let filtered = [...AppState.allGoals];
+    if (AppState.goalStatus) {
+        filtered = filtered.filter(g => g.status === AppState.goalStatus);
+    }
+    if (AppState.goalSearchQuery) {
+        const q = AppState.goalSearchQuery.toLowerCase();
+        filtered = filtered.filter(g =>
+            g.title.toLowerCase().includes(q) ||
+            (g.vision && g.vision.toLowerCase().includes(q)) ||
+            (g.category && g.category.toLowerCase().includes(q)) ||
+            (g.tags && g.tags.some(tag => tag.toLowerCase().includes(q))) ||
+            (g.records || []).some(r =>
+                (r.title && r.title.toLowerCase().includes(q)) ||
+                (r.content && r.content.toLowerCase().includes(q)) ||
+                (r.tags && r.tags.some(tag => tag.toLowerCase().includes(q)))
+            )
+        );
+    }
+    filtered.sort((a, b) => {
+        if (AppState.goalSort === 'created') return new Date(a.createdAt) - new Date(b.createdAt);
+        if (AppState.goalSort === 'progress') return (b.progress || 0) - (a.progress || 0);
+        if (AppState.goalSort === 'targetDate') {
+            if (!a.targetDate) return 1;
+            if (!b.targetDate) return -1;
+            return new Date(a.targetDate) - new Date(b.targetDate);
+        }
+        return new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt);
+    });
+    return filtered;
+}
+
+function renderGoals() {
+    const container = document.getElementById('goalsContainer');
+    const emptyState = document.getElementById('goalsEmptyState');
+    if (!container) return;
+
+    const goals = getFilteredGoals();
+    if (goals.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+    container.innerHTML = goals.map((goal, index) => createGoalCard(goal, index)).join('');
+
+    goals.forEach(goal => {
+        document.getElementById(`edit-goal-${goal.id}`)?.addEventListener('click', () => openEditGoalModal(goal));
+        document.getElementById(`delete-goal-${goal.id}`)?.addEventListener('click', () => deleteGoal(goal.id));
+        document.getElementById(`add-record-${goal.id}`)?.addEventListener('click', () => openGoalRecordModal(goal));
+        (goal.records || []).forEach(record => {
+            document.getElementById(`edit-record-${goal.id}-${record.id}`)?.addEventListener('click', () => openGoalRecordModal(goal, record));
+            document.getElementById(`delete-record-${goal.id}-${record.id}`)?.addEventListener('click', () => deleteGoalRecord(goal.id, record.id));
+        });
+    });
+}
+
+function createGoalCard(goal, index) {
+    const statusLabel = GOAL_STATUS_LABELS[goal.status] || '进行中';
+    const progress = Math.min(100, Math.max(0, goal.progress || 0));
+    const categoryBadge = goal.category
+        ? `<span class="badge badge-category"><i class="fas fa-folder-open"></i> ${escapeHtml(goal.category)}</span>`
+        : '';
+    const tags = goal.tags && goal.tags.length > 0
+        ? goal.tags.map(t => `<span class="badge badge-category"><i class="fas fa-tag"></i> ${escapeHtml(t)}</span>`).join('')
+        : '';
+    const dateRange = goal.startDate || goal.targetDate
+        ? `${goal.startDate ? formatDateOnly(goal.startDate) : '未设定'} → ${goal.targetDate ? formatDateOnly(goal.targetDate) : '未设定'}`
+        : '未设定时间范围';
+
+    const recordType = AppState.goalRecordType;
+    const recordLabel = recordType ? `${GOAL_TYPE_LABELS[recordType] || '记录'}记录` : '灵感/资料';
+    const records = goal.records || [];
+    const visibleRecords = recordType ? records.filter(record => record.type === recordType) : records;
+    const recordsHtml = visibleRecords.length
+        ? visibleRecords
+            .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt))
+            .map(record => createGoalRecordItem(goal.id, record))
+            .join('')
+        : `<div class="goal-record-empty">${recordType ? '当前筛选下暂无记录' : '还没有记录，先添加一条灵感或资料'}</div>`;
+
+    return `
+        <div class="goal-card goal-review-card" style="--stagger: ${index}">
+            <div class="goal-card-header">
+                <div class="goal-title">
+                    <span class="goal-status ${escapeHtml(goal.status || 'active')}">
+                        <i class="fas fa-circle"></i> ${statusLabel}
+                    </span>
+                    <h3>${escapeHtml(goal.title)}</h3>
+                    ${goal.vision ? `<p class="goal-vision">${escapeHtml(goal.vision)}</p>` : ''}
+                </div>
+                <div class="goal-actions">
+                    <button class="note-action-btn edit" id="edit-goal-${goal.id}"><i class="fas fa-edit"></i></button>
+                    <button class="note-action-btn delete" id="delete-goal-${goal.id}"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="goal-meta">
+                ${categoryBadge}
+                ${tags}
+                <span class="goal-dates"><i class="fas fa-calendar-alt"></i> ${dateRange}</span>
+            </div>
+            <div class="goal-progress">
+                <div class="goal-progress-bar">
+                    <div class="goal-progress-fill" style="width: ${progress}%"></div>
+                </div>
+                <span class="goal-progress-label">${progress}%</span>
+            </div>
+            <div class="goal-records">
+                <div class="goal-records-header">
+                    <span>${recordLabel}</span>
+                    <button class="btn btn-ghost" id="add-record-${goal.id}">
+                        <i class="fas fa-plus"></i> 添加记录
+                    </button>
+                </div>
+                <div class="goal-records-list">
+                    ${recordsHtml}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function createGoalRecordItem(goalId, record) {
+    const typeLabel = GOAL_TYPE_LABELS[record.type] || '灵感';
+    const typeIcon = GOAL_TYPE_ICONS[record.type] || 'fa-lightbulb';
+    const recordTags = record.tags && record.tags.length > 0
+        ? record.tags.map(t => `<span><i class="fas fa-tag"></i> ${escapeHtml(t)}</span>`).join('')
+        : '';
+
+    const content = record.content ? record.content.trim() : '';
+    const shortContent = content.length > 120 ? `${content.slice(0, 120)}...` : content;
+
+    return `
+        <div class="goal-record-item">
+            <div class="goal-record-icon ${escapeHtml(record.type || 'inspiration')}">
+                <i class="fas ${typeIcon}"></i>
+            </div>
+            <div class="goal-record-body">
+                <div class="goal-record-title">${escapeHtml(record.title || typeLabel)}</div>
+                <div class="goal-record-text">${escapeHtml(shortContent)}</div>
+                <div class="goal-record-meta">
+                    <span><i class="fas fa-layer-group"></i> ${typeLabel}</span>
+                    <span><i class="fas fa-calendar-day"></i> ${formatDateOnly(record.date || record.createdAt)}</span>
+                    ${recordTags}
+                </div>
+            </div>
+            <div class="goal-record-actions">
+                <button class="record-action-btn" id="edit-record-${goalId}-${record.id}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="record-action-btn" id="delete-record-${goalId}-${record.id}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+async function deleteGoal(id) {
+    if (!confirm('确定要删除这个目标吗？所有记录也会被移除。')) return;
+    try {
+        await apiCall(`/goals/${id}`, { method: 'DELETE' });
+        await loadGoals();
+        showNotification('删除成功', 'success');
+    } catch (error) {
+        showNotification('删除失败', 'error');
+    }
+}
+
+async function deleteGoalRecord(goalId, recordId) {
+    if (!confirm('确定要删除这条记录吗？')) return;
+    try {
+        await apiCall(`/goals/${goalId}/records/${recordId}`, { method: 'DELETE' });
+        await loadGoals();
+        showNotification('删除成功', 'success');
+    } catch (error) {
+        showNotification('删除失败', 'error');
+    }
+}
+
+function openEditGoalModal(goal) {
+    AppState.editingGoalId = goal.id;
+    document.getElementById('goalModalTitle').textContent = '编辑目标';
+    document.getElementById('goalTitle').value = goal.title || '';
+    document.getElementById('goalVision').value = goal.vision || '';
+    document.getElementById('goalCategory').value = goal.category || '';
+    document.getElementById('goalStatus').value = goal.status || 'active';
+    document.getElementById('goalStartDate').value = toDateInputValue(goal.startDate);
+    document.getElementById('goalTargetDate').value = toDateInputValue(goal.targetDate);
+    document.getElementById('goalProgress').value = goal.progress || 0;
+    document.getElementById('goalTags').value = goal.tags ? goal.tags.join(', ') : '';
+    goalModal.classList.add('show');
+}
+
+function openGoalRecordModal(goal, record = null) {
+    AppState.goalRecordTargetId = goal.id;
+    AppState.editingGoalRecordId = record ? record.id : null;
+    document.getElementById('goalRecordGoalName').textContent = goal.title || '';
+    document.getElementById('goalRecordModalTitle').textContent = record ? '编辑记录' : '添加记录';
+    document.getElementById('goalRecordTitle').value = record?.title || '';
+    document.getElementById('goalRecordContent').value = record?.content || '';
+    document.getElementById('goalRecordType').value = record?.type || 'inspiration';
+    document.getElementById('goalRecordDate').value = toDateInputValue(record?.date || new Date());
+    document.getElementById('goalRecordTags').value = record?.tags ? record.tags.join(', ') : '';
+    goalRecordModal.classList.add('show');
+}
+
 // ==================== Modal Handlers ====================
 const noteModal = document.getElementById('noteModal');
 const ideaModal = document.getElementById('ideaModal');
+const diaryModal = document.getElementById('diaryModal');
+const goalModal = document.getElementById('goalModal');
+const goalRecordModal = document.getElementById('goalRecordModal');
 const settingsModal = document.getElementById('settingsModal');
 
 // Close modal handlers
@@ -711,6 +1231,9 @@ document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
     btn.addEventListener('click', () => {
         noteModal.classList.remove('show');
         ideaModal.classList.remove('show');
+        diaryModal?.classList.remove('show');
+        goalModal?.classList.remove('show');
+        goalRecordModal?.classList.remove('show');
         settingsModal.classList.remove('show');
     });
 });
@@ -719,6 +1242,9 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', () => {
         noteModal.classList.remove('show');
         ideaModal.classList.remove('show');
+        diaryModal?.classList.remove('show');
+        goalModal?.classList.remove('show');
+        goalRecordModal?.classList.remove('show');
         settingsModal.classList.remove('show');
     });
 });
@@ -741,6 +1267,24 @@ document.getElementById('addIdeaBtn').addEventListener('click', () => {
     document.getElementById('ideaForm').reset();
     resetColorPicker('ideaColorPicker');
     ideaModal.classList.add('show');
+});
+
+// Add Diary Modal
+document.getElementById('addDiaryBtn')?.addEventListener('click', () => {
+    AppState.editingDiaryId = null;
+    document.getElementById('diaryModalTitle').textContent = '写日记';
+    document.getElementById('diaryForm').reset();
+    document.getElementById('diaryDate').value = formatDateKey(new Date());
+    diaryModal.classList.add('show');
+});
+
+// Add Goal Modal
+document.getElementById('addGoalBtn')?.addEventListener('click', () => {
+    AppState.editingGoalId = null;
+    document.getElementById('goalModalTitle').textContent = '新建目标';
+    document.getElementById('goalForm').reset();
+    document.getElementById('goalProgress').value = 0;
+    goalModal.classList.add('show');
 });
 
 // Color Picker
@@ -903,6 +1447,103 @@ document.getElementById('ideaForm').addEventListener('submit', async (e) => {
     }
 });
 
+// Diary Form Submit
+document.getElementById('diaryForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const content = document.getElementById('diaryContent').value.trim();
+
+    if (!content) return showNotification('内容不能为空', 'error');
+
+    const diaryData = {
+        title: document.getElementById('diaryTitle').value.trim(),
+        content,
+        mood: document.getElementById('diaryMood').value,
+        weather: document.getElementById('diaryWeather').value.trim(),
+        tags: document.getElementById('diaryTags').value.split(',').map(t => t.trim()).filter(t => t),
+        entryDate: document.getElementById('diaryDate').value ? new Date(document.getElementById('diaryDate').value).toISOString() : null
+    };
+
+    try {
+        if (AppState.editingDiaryId) {
+            await apiCall(`/diaries/${AppState.editingDiaryId}`, { method: 'PUT', body: JSON.stringify(diaryData) });
+            showNotification('更新成功', 'success');
+        } else {
+            await apiCall('/diaries', { method: 'POST', body: JSON.stringify(diaryData) });
+            showNotification('记录成功', 'success');
+        }
+        diaryModal.classList.remove('show');
+        await loadDiaries();
+    } catch (error) {
+        showNotification(error.error || '保存失败', 'error');
+    }
+});
+
+// Goal Form Submit
+document.getElementById('goalForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('goalTitle').value.trim();
+
+    if (!title) return showNotification('目标名称不能为空', 'error');
+
+    const goalData = {
+        title,
+        vision: document.getElementById('goalVision').value.trim(),
+        category: document.getElementById('goalCategory').value.trim(),
+        status: document.getElementById('goalStatus').value,
+        startDate: document.getElementById('goalStartDate').value || null,
+        targetDate: document.getElementById('goalTargetDate').value || null,
+        progress: document.getElementById('goalProgress').value,
+        tags: document.getElementById('goalTags').value.split(',').map(t => t.trim()).filter(t => t)
+    };
+
+    try {
+        if (AppState.editingGoalId) {
+            await apiCall(`/goals/${AppState.editingGoalId}`, { method: 'PUT', body: JSON.stringify(goalData) });
+            showNotification('更新成功', 'success');
+        } else {
+            await apiCall('/goals', { method: 'POST', body: JSON.stringify(goalData) });
+            showNotification('创建成功', 'success');
+        }
+        goalModal.classList.remove('show');
+        await loadGoals();
+    } catch (error) {
+        showNotification(error.error || '保存失败', 'error');
+    }
+});
+
+// Goal Record Form Submit
+document.getElementById('goalRecordForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!AppState.goalRecordTargetId) return;
+
+    const content = document.getElementById('goalRecordContent').value.trim();
+    if (!content) return showNotification('内容不能为空', 'error');
+
+    const recordData = {
+        title: document.getElementById('goalRecordTitle').value.trim(),
+        content,
+        type: document.getElementById('goalRecordType').value,
+        date: document.getElementById('goalRecordDate').value || null,
+        tags: document.getElementById('goalRecordTags').value.split(',').map(t => t.trim()).filter(t => t)
+    };
+
+    try {
+        if (AppState.editingGoalRecordId) {
+            await apiCall(`/goals/${AppState.goalRecordTargetId}/records/${AppState.editingGoalRecordId}`, { method: 'PUT', body: JSON.stringify(recordData) });
+            showNotification('更新成功', 'success');
+        } else {
+            await apiCall(`/goals/${AppState.goalRecordTargetId}/records`, { method: 'POST', body: JSON.stringify(recordData) });
+            showNotification('记录成功', 'success');
+        }
+        goalRecordModal.classList.remove('show');
+        AppState.editingGoalRecordId = null;
+        AppState.goalRecordTargetId = null;
+        await loadGoals();
+    } catch (error) {
+        showNotification(error.error || '保存失败', 'error');
+    }
+});
+
 // ==================== Filter & Search Handlers ====================
 // Notes filters
 document.querySelectorAll('.pill').forEach(btn => {
@@ -990,6 +1631,72 @@ document.getElementById('ideasNextPage')?.addEventListener('click', () => {
         AppState.ideaCurrentPage++;
         renderIdeas();
     }
+});
+
+// Diaries filters
+document.getElementById('diarySearchInput')?.addEventListener('input', (e) => {
+    AppState.diarySearchQuery = e.target.value;
+    AppState.diaryCurrentPage = 1;
+    renderDiaries();
+});
+
+document.getElementById('diaryMoodFilter')?.addEventListener('change', (e) => {
+    AppState.diaryMood = e.target.value;
+    AppState.diaryCurrentPage = 1;
+    renderDiaries();
+});
+
+document.getElementById('diaryRangeFilter')?.addEventListener('change', (e) => {
+    AppState.diaryRange = e.target.value;
+    AppState.diaryCurrentPage = 1;
+    renderDiaries();
+});
+
+document.getElementById('diarySortSelect')?.addEventListener('change', (e) => {
+    AppState.diarySort = e.target.value;
+    renderDiaries();
+});
+
+document.getElementById('diaryPerPageSelect')?.addEventListener('change', (e) => {
+    AppState.diaryPerPage = parseInt(e.target.value);
+    AppState.diaryCurrentPage = 1;
+    renderDiaries();
+});
+
+document.getElementById('diaryPrevPage')?.addEventListener('click', () => {
+    if (AppState.diaryCurrentPage > 1) {
+        AppState.diaryCurrentPage--;
+        renderDiaries();
+    }
+});
+
+document.getElementById('diaryNextPage')?.addEventListener('click', () => {
+    const { totalPages } = getPaginatedDiaries();
+    if (AppState.diaryCurrentPage < totalPages) {
+        AppState.diaryCurrentPage++;
+        renderDiaries();
+    }
+});
+
+// Goals filters
+document.getElementById('goalSearchInput')?.addEventListener('input', (e) => {
+    AppState.goalSearchQuery = e.target.value;
+    renderGoals();
+});
+
+document.getElementById('goalStatusFilter')?.addEventListener('change', (e) => {
+    AppState.goalStatus = e.target.value;
+    renderGoals();
+});
+
+document.getElementById('goalRecordTypeFilter')?.addEventListener('change', (e) => {
+    AppState.goalRecordType = e.target.value;
+    renderGoals();
+});
+
+document.getElementById('goalSortSelect')?.addEventListener('change', (e) => {
+    AppState.goalSort = e.target.value;
+    renderGoals();
 });
 
 // ==================== Toolbar Actions ====================
@@ -1318,7 +2025,6 @@ async function loadTimeline() {
         TimelineState.allData.ideas = ideas || [];
 
         renderCalendar();
-        renderHeatmap();
         updateTimelineStats();
         selectDate(TimelineState.selectedDate);
     } catch (error) {
@@ -1476,65 +2182,6 @@ function selectDate(date) {
     }).join('');
 }
 
-function renderHeatmap() {
-    const container = document.getElementById('heatmapContainer');
-    container.innerHTML = '';
-
-    // Generate last 20 weeks (140 days)
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 139);
-
-    // Adjust to start from Sunday
-    startDate.setDate(startDate.getDate() - startDate.getDay());
-
-    // Count activities per day
-    const activityMap = {};
-    TimelineState.allData.notes.forEach(n => {
-        const key = formatDateKey(new Date(n.createdAt));
-        activityMap[key] = (activityMap[key] || 0) + 1;
-    });
-    TimelineState.allData.ideas.forEach(i => {
-        const key = formatDateKey(new Date(i.createdAt));
-        activityMap[key] = (activityMap[key] || 0) + 1;
-    });
-
-    // Create weeks
-    let currentDate = new Date(startDate);
-    while (currentDate <= today) {
-        const week = document.createElement('div');
-        week.className = 'heatmap-week';
-
-        for (let d = 0; d < 7; d++) {
-            const day = document.createElement('div');
-            day.className = 'heatmap-day';
-
-            const dateStr = formatDateKey(currentDate);
-            const count = activityMap[dateStr] || 0;
-
-            if (count >= 5) day.classList.add('level-4');
-            else if (count >= 3) day.classList.add('level-3');
-            else if (count >= 2) day.classList.add('level-2');
-            else if (count >= 1) day.classList.add('level-1');
-
-            day.title = `${currentDate.toLocaleDateString('zh-CN')}: ${count} 条记录`;
-
-            const capturedDate = new Date(currentDate);
-            day.addEventListener('click', () => {
-                TimelineState.currentYear = capturedDate.getFullYear();
-                TimelineState.currentMonth = capturedDate.getMonth();
-                renderCalendar();
-                selectDate(capturedDate);
-            });
-
-            week.appendChild(day);
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-
-        container.appendChild(week);
-    }
-}
-
 function updateTimelineStats() {
     // Calculate streak
     let streak = 0;
@@ -1564,6 +2211,41 @@ function updateTimelineStats() {
 
     document.getElementById('monthCompleted').textContent = monthCompleted.length;
     document.getElementById('monthIdeas').textContent = monthIdeas.length;
+
+    // 本月洞察
+    const monthTotal = monthNotes.length + monthIdeas.length;
+    const activeDaySet = new Set();
+    monthNotes.forEach(n => activeDaySet.add(formatDateKey(new Date(n.createdAt))));
+    monthIdeas.forEach(i => activeDaySet.add(formatDateKey(new Date(i.createdAt))));
+    const activeDays = activeDaySet.size;
+    const daysElapsed = today.getDate();
+    const avgActivity = daysElapsed > 0 ? (monthTotal / daysElapsed) : 0;
+    const avgActivityDisplay = avgActivity.toFixed(1).replace(/\.0$/, '');
+    const completionRate = monthNotes.length > 0
+        ? Math.round((monthCompleted.length / monthNotes.length) * 100)
+        : 0;
+    const ideaRate = daysElapsed > 0
+        ? Math.round((monthIdeas.length / daysElapsed) * 100)
+        : 0;
+    const ideaRateWidth = Math.min(100, ideaRate);
+
+    const monthActiveDaysEl = document.getElementById('monthActiveDays');
+    const monthAvgActivityEl = document.getElementById('monthAvgActivity');
+    const monthTotalNotesEl = document.getElementById('monthTotalNotes');
+    const monthTotalIdeasEl = document.getElementById('monthTotalIdeas');
+    const monthCompletionRateEl = document.getElementById('monthCompletionRate');
+    const monthIdeaRateEl = document.getElementById('monthIdeaRate');
+    const monthCompletionBarEl = document.getElementById('monthCompletionBar');
+    const monthIdeaBarEl = document.getElementById('monthIdeaBar');
+
+    if (monthActiveDaysEl) monthActiveDaysEl.textContent = activeDays;
+    if (monthAvgActivityEl) monthAvgActivityEl.textContent = avgActivityDisplay;
+    if (monthTotalNotesEl) monthTotalNotesEl.textContent = monthNotes.length;
+    if (monthTotalIdeasEl) monthTotalIdeasEl.textContent = monthIdeas.length;
+    if (monthCompletionRateEl) monthCompletionRateEl.textContent = completionRate + '%';
+    if (monthIdeaRateEl) monthIdeaRateEl.textContent = ideaRate + '%';
+    if (monthCompletionBarEl) monthCompletionBarEl.style.width = completionRate + '%';
+    if (monthIdeaBarEl) monthIdeaBarEl.style.width = ideaRateWidth + '%';
 
     // Week stats
     updateWeekStats();
@@ -1690,694 +2372,25 @@ async function init() {
     document.querySelector('.pill[data-filter="all"]')?.classList.add('active');
     AppState.currentFilter = 'all';
 
-    // Force initial render
-    try {
-        AppState.allNotes = await apiCall('/notes');
-        updateCategoryFilter();
-        renderNotes();
-        updateNotesStats();
-        console.log('Notes loaded:', AppState.allNotes.length);
-    } catch (error) {
-        console.error('Init error:', error);
-    }
+    const hash = window.location.hash.replace('#', '');
+    const validPages = ['notes', 'ideas', 'diary', 'goals', 'timeline'];
+    const page = validPages.includes(hash) ? hash : 'notes';
+    switchPage(page);
 }
 
 init();
-setInterval(loadNotes, 60000);
+setInterval(() => {
+    const page = AppState.activePage;
+    if (page === 'notes') {
+        loadNotes();
+    } else if (page === 'ideas') {
+        loadIdeas();
+    } else if (page === 'diary') {
+        loadDiaries();
+    } else if (page === 'goals') {
+        loadGoals();
+    } else if (page === 'timeline') {
+        loadTimeline();
+    }
+}, 60000);
 console.log('智能笔记系统已加载完成 v3.0');
-
-// ==================== AI Assistant ====================
-const AIState = {
-    currentConversationId: null,
-    conversations: [],
-    config: null,
-    currentTab: 'chat',
-    parsedData: null
-};
-
-// Load AI config on page load
-async function loadAIConfig() {
-    try {
-        const config = await apiCall('/ai/config');
-        AIState.config = config;
-
-        // Update settings form
-        document.getElementById('aiBaseUrl').value = config.provider.baseUrl || '';
-        document.getElementById('aiApiKey').value = config.provider.hasApiKey ? config.provider.apiKey : '';
-        document.getElementById('aiModel').value = config.provider.model || 'gpt-4o-mini';
-        document.getElementById('aiEnabled').checked = config.enabled;
-    } catch (error) {
-        console.log('AI config not loaded:', error.message);
-    }
-}
-
-// Load conversations
-async function loadConversations() {
-    try {
-        const conversations = await apiCall('/ai/conversations');
-        AIState.conversations = conversations;
-        renderConversations();
-    } catch (error) {
-        console.error('Load conversations error:', error);
-    }
-}
-
-// Render conversation list
-function renderConversations() {
-    const container = document.getElementById('aiConversations');
-    if (!container) return;
-
-    if (AIState.conversations.length === 0) {
-        container.innerHTML = `
-            <div class="ai-empty-conversations">
-                <p>暂无对话</p>
-                <p>点击 + 创建新对话</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = AIState.conversations.map(conv => `
-        <div class="ai-conversation-item ${conv.id === AIState.currentConversationId ? 'active' : ''}"
-             data-id="${conv.id}">
-            <div class="conv-title">${conv.title}</div>
-            <div class="conv-time">${formatRelativeTime(conv.updatedAt)}</div>
-        </div>
-    `).join('');
-
-    // Add click handlers
-    container.querySelectorAll('.ai-conversation-item').forEach(item => {
-        item.addEventListener('click', () => selectConversation(item.dataset.id));
-    });
-}
-
-// Format relative time
-function formatRelativeTime(dateStr) {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now - date;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    if (hours < 24) return `${hours}小时前`;
-    if (days < 7) return `${days}天前`;
-    return date.toLocaleDateString('zh-CN');
-}
-
-// Create new conversation
-async function createNewConversation() {
-    try {
-        const conv = await apiCall('/ai/conversations', 'POST', { title: '新对话' });
-        AIState.conversations.unshift(conv);
-        renderConversations();
-        selectConversation(conv.id);
-    } catch (error) {
-        showNotification('创建对话失败', 'error');
-    }
-}
-
-// Select conversation
-async function selectConversation(id) {
-    try {
-        const conv = await apiCall(`/ai/conversations/${id}`);
-        AIState.currentConversationId = id;
-
-        document.getElementById('currentChatTitle').textContent = conv.title;
-        document.getElementById('deleteChatBtn').style.display = 'block';
-
-        renderMessages(conv.messages);
-        renderConversations();
-    } catch (error) {
-        showNotification('加载对话失败', 'error');
-    }
-}
-
-// Render messages
-function renderMessages(messages) {
-    const container = document.getElementById('aiMessages');
-
-    if (!messages || messages.length === 0) {
-        container.innerHTML = getWelcomeHTML();
-        bindQuickActions();
-        return;
-    }
-
-    container.innerHTML = messages.map(msg => `
-        <div class="ai-message ${msg.role}">
-            <div class="ai-message-avatar">
-                <i class="fas ${msg.role === 'assistant' ? 'fa-robot' : 'fa-user'}"></i>
-            </div>
-            <div class="ai-message-content">
-                ${formatMessageContent(msg.content)}
-            </div>
-        </div>
-    `).join('');
-
-    container.scrollTop = container.scrollHeight;
-}
-
-// Get welcome HTML
-function getWelcomeHTML() {
-    return `
-        <div class="ai-welcome">
-            <div class="ai-welcome-avatar">
-                <div class="ai-welcome-icon">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="ai-welcome-glow"></div>
-            </div>
-            <h3>你好，我是 AI 助手</h3>
-            <p>我可以帮你管理待办事项、规划任务、分析效率趋势，随时向我提问吧</p>
-            <div class="ai-suggestions">
-                <span class="ai-suggestions-label">快速开始</span>
-                <div class="ai-quick-actions">
-                    <button class="ai-quick-btn" data-prompt="今天我应该做什么？">
-                        <i class="fas fa-sun"></i>
-                        <span>今日规划</span>
-                    </button>
-                    <button class="ai-quick-btn" data-prompt="总结一下我这周的情况">
-                        <i class="fas fa-chart-pie"></i>
-                        <span>周报总结</span>
-                    </button>
-                    <button class="ai-quick-btn" data-prompt="帮我分析一下待办优先级">
-                        <i class="fas fa-list-check"></i>
-                        <span>优先级分析</span>
-                    </button>
-                    <button class="ai-quick-btn" data-prompt="给我一些提高效率的建议">
-                        <i class="fas fa-lightbulb"></i>
-                        <span>效率建议</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// Bind quick action buttons
-function bindQuickActions() {
-    document.querySelectorAll('.ai-quick-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const prompt = btn.dataset.prompt;
-            if (prompt) sendMessage(prompt);
-        });
-    });
-}
-
-// Format message content (simple markdown)
-function formatMessageContent(content) {
-    return content
-        .replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`(.*?)`/g, '<code>$1</code>');
-}
-
-// Send message
-async function sendMessage(message) {
-    if (!message.trim()) return;
-
-    // Check if we have a conversation
-    if (!AIState.currentConversationId) {
-        await createNewConversation();
-    }
-
-    const messagesContainer = document.getElementById('aiMessages');
-
-    // Clear welcome if present
-    const welcome = messagesContainer.querySelector('.ai-welcome');
-    if (welcome) welcome.remove();
-
-    // Add user message
-    messagesContainer.innerHTML += `
-        <div class="ai-message user">
-            <div class="ai-message-avatar">
-                <i class="fas fa-user"></i>
-            </div>
-            <div class="ai-message-content">${formatMessageContent(message)}</div>
-        </div>
-    `;
-
-    // Add loading indicator
-    messagesContainer.innerHTML += `
-        <div class="ai-message assistant ai-loading-message">
-            <div class="ai-message-avatar">
-                <i class="fas fa-robot"></i>
-            </div>
-            <div class="ai-loading">
-                <div class="ai-loading-dots">
-                    <span></span><span></span><span></span>
-                </div>
-                <span>思考中...</span>
-            </div>
-        </div>
-    `;
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-    // Disable input
-    const sendBtn = document.getElementById('aiSendBtn');
-    const input = document.getElementById('aiInput');
-    sendBtn.disabled = true;
-    input.value = '';
-
-    try {
-        const response = await apiCall(
-            `/ai/conversations/${AIState.currentConversationId}/messages`,
-            'POST',
-            { message }
-        );
-
-        // Remove loading
-        messagesContainer.querySelector('.ai-loading-message')?.remove();
-
-        // Add AI response
-        messagesContainer.innerHTML += `
-            <div class="ai-message assistant">
-                <div class="ai-message-avatar">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="ai-message-content">
-                    ${formatMessageContent(response.assistantMessage.content)}
-                </div>
-            </div>
-        `;
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-        // Reload conversations to update title
-        loadConversations();
-    } catch (error) {
-        messagesContainer.querySelector('.ai-loading-message')?.remove();
-        messagesContainer.innerHTML += `
-            <div class="ai-message assistant">
-                <div class="ai-message-avatar">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <div class="ai-message-content" style="color: var(--danger);">
-                    ${error.message || '发送失败，请检查AI配置'}
-                </div>
-            </div>
-        `;
-    } finally {
-        sendBtn.disabled = false;
-    }
-}
-
-// Delete conversation
-async function deleteCurrentConversation() {
-    if (!AIState.currentConversationId) return;
-
-    if (!confirm('确定要删除这个对话吗？')) return;
-
-    try {
-        await apiCall(`/ai/conversations/${AIState.currentConversationId}`, 'DELETE');
-        AIState.currentConversationId = null;
-        document.getElementById('currentChatTitle').textContent = '开始新对话';
-        document.getElementById('deleteChatBtn').style.display = 'none';
-        document.getElementById('aiMessages').innerHTML = getWelcomeHTML();
-        bindQuickActions();
-        loadConversations();
-        showNotification('对话已删除', 'success');
-    } catch (error) {
-        showNotification('删除失败', 'error');
-    }
-}
-
-// Switch AI tab
-function switchAITab(tab) {
-    AIState.currentTab = tab;
-
-    // Update sidebar tab buttons
-    document.querySelectorAll('.ai-tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-
-    // Update mobile tab buttons
-    document.querySelectorAll('.ai-mobile-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-
-    // Update tab content
-    document.querySelectorAll('.ai-tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-
-    const tabMap = {
-        'chat': 'aiChatTab',
-        'create': 'aiCreateTab',
-        'settings': 'aiSettingsTab'
-    };
-    document.getElementById(tabMap[tab])?.classList.add('active');
-}
-
-// Parse input for quick create
-async function parseQuickCreate() {
-    const input = document.getElementById('quickCreateInput').value.trim();
-    if (!input) {
-        showNotification('请输入内容', 'warning');
-        return;
-    }
-
-    const parseBtn = document.getElementById('parseBtn');
-    parseBtn.disabled = true;
-    parseBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>解析中...</span>';
-
-    try {
-        const response = await apiCall('/ai/parse', 'POST', { input });
-
-        if (response.success && response.parsed) {
-            AIState.parsedData = response.parsed;
-            displayParseResult(response.parsed);
-        } else {
-            showNotification('解析失败', 'error');
-        }
-    } catch (error) {
-        showNotification(error.message || '解析失败', 'error');
-    } finally {
-        parseBtn.disabled = false;
-        parseBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> <span>智能解析</span>';
-    }
-}
-
-// Display parse result
-function displayParseResult(parsed) {
-    const resultDiv = document.getElementById('parseResult');
-    const emptyState = document.getElementById('parseEmptyState');
-    const parseContent = document.getElementById('parseContent');
-    const typeDiv = document.getElementById('parseType');
-    const fieldsDiv = document.getElementById('parseFields');
-
-    const isNote = parsed.type === 'note';
-    typeDiv.innerHTML = `<i class="fas ${isNote ? 'fa-clipboard-check' : 'fa-lightbulb'}"></i> ${isNote ? '待办事项' : '想法记录'}`;
-
-    const data = parsed.data || {};
-    let fieldsHtml = '';
-
-    fieldsHtml += `<div class="parse-field"><span class="label">标题</span><span class="value">${data.title || '-'}</span></div>`;
-
-    if (data.content) {
-        fieldsHtml += `<div class="parse-field"><span class="label">内容</span><span class="value">${data.content.substring(0, 50)}${data.content.length > 50 ? '...' : ''}</span></div>`;
-    }
-
-    if (data.category) {
-        fieldsHtml += `<div class="parse-field"><span class="label">分类</span><span class="value">${data.category}</span></div>`;
-    }
-
-    if (isNote) {
-        if (data.priority) {
-            const priorityMap = { high: '🔴 高', medium: '🟡 中', low: '🟢 低' };
-            fieldsHtml += `<div class="parse-field"><span class="label">优先级</span><span class="value">${priorityMap[data.priority] || data.priority}</span></div>`;
-        }
-        if (data.dueDate) {
-            fieldsHtml += `<div class="parse-field"><span class="label">截止日期</span><span class="value">${new Date(data.dueDate).toLocaleString('zh-CN')}</span></div>`;
-        }
-        if (data.reminderDate) {
-            fieldsHtml += `<div class="parse-field"><span class="label">提醒时间</span><span class="value">${new Date(data.reminderDate).toLocaleString('zh-CN')}</span></div>`;
-        }
-        if (data.isImportant) {
-            fieldsHtml += `<div class="parse-field"><span class="label">重要</span><span class="value">⭐ 是</span></div>`;
-        }
-    }
-
-    fieldsDiv.innerHTML = fieldsHtml;
-
-    // Show parse content, hide empty state
-    if (emptyState) emptyState.style.display = 'none';
-    if (parseContent) parseContent.style.display = 'flex';
-    resultDiv.classList.add('has-result');
-}
-
-// Confirm create from parsed data
-async function confirmQuickCreate() {
-    if (!AIState.parsedData) return;
-
-    const parsed = AIState.parsedData;
-    const data = parsed.data;
-
-    try {
-        if (parsed.type === 'note') {
-            await apiCall('/notes', 'POST', {
-                title: data.title,
-                content: data.content || '',
-                category: data.category || null,
-                priority: data.priority || 'medium',
-                isImportant: data.isImportant || false,
-                dueDate: data.dueDate || null,
-                reminderDate: data.reminderDate || null,
-                reminderMethods: data.reminderDate ? ['email'] : []
-            });
-            showNotification('待办创建成功', 'success');
-            loadNotes();
-        } else {
-            await apiCall('/ideas', 'POST', {
-                title: data.title,
-                content: data.content || '',
-                category: data.category || ''
-            });
-            showNotification('想法记录成功', 'success');
-        }
-
-        // Reset form
-        document.getElementById('quickCreateInput').value = '';
-        document.getElementById('parseResult').style.display = 'none';
-        AIState.parsedData = null;
-    } catch (error) {
-        showNotification(error.message || '创建失败', 'error');
-    }
-}
-
-// Direct create - parse and create in one step
-async function directCreate() {
-    const input = document.getElementById('quickCreateInput').value.trim();
-    if (!input) {
-        showNotification('请输入内容', 'warning');
-        return;
-    }
-
-    const directBtn = document.getElementById('directCreateBtn');
-    if (directBtn) {
-        directBtn.disabled = true;
-        directBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>创建中...</span>';
-    }
-
-    try {
-        // Step 1: Parse the input
-        const parseResponse = await apiCall('/ai/parse', 'POST', { input });
-
-        if (!parseResponse.success || !parseResponse.parsed) {
-            showNotification('解析失败，请重试', 'error');
-            return;
-        }
-
-        const parsed = parseResponse.parsed;
-        const data = parsed.data;
-
-        // Step 2: Create the note/idea directly
-        if (parsed.type === 'note') {
-            await apiCall('/notes', 'POST', {
-                title: data.title,
-                content: data.content || '',
-                category: data.category || null,
-                priority: data.priority || 'medium',
-                isImportant: data.isImportant || false,
-                dueDate: data.dueDate || null,
-                reminderDate: data.reminderDate || null,
-                reminderMethods: data.reminderDate ? ['email'] : []
-            });
-            showNotification(`✅ 待办「${data.title}」创建成功`, 'success');
-            loadNotes();
-        } else {
-            await apiCall('/ideas', 'POST', {
-                title: data.title,
-                content: data.content || '',
-                category: data.category || ''
-            });
-            showNotification(`✅ 想法「${data.title}」记录成功`, 'success');
-        }
-
-        // Reset form
-        document.getElementById('quickCreateInput').value = '';
-        document.getElementById('parseResult').style.display = 'none';
-        AIState.parsedData = null;
-
-    } catch (error) {
-        showNotification(error.message || '创建失败', 'error');
-    } finally {
-        if (directBtn) {
-            directBtn.disabled = false;
-            directBtn.innerHTML = '<i class="fas fa-bolt"></i> <span>直接创建</span>';
-        }
-    }
-}
-
-// Check if auto-create mode is enabled
-function isAutoCreateMode() {
-    const toggle = document.getElementById('autoCreateMode');
-    return toggle && toggle.checked;
-}
-
-// Save AI config
-async function saveAIConfig() {
-    const baseUrl = document.getElementById('aiBaseUrl').value.trim();
-    const apiKey = document.getElementById('aiApiKey').value.trim();
-    const model = document.getElementById('aiModel').value.trim();
-    const enabled = document.getElementById('aiEnabled').checked;
-
-    if (enabled && (!baseUrl || !apiKey)) {
-        showNotification('请填写完整的API配置', 'warning');
-        return;
-    }
-
-    try {
-        await apiCall('/ai/config', 'POST', { baseUrl, apiKey, model, enabled });
-        showNotification('配置已保存', 'success');
-        loadAIConfig();
-    } catch (error) {
-        showNotification('保存失败', 'error');
-    }
-}
-
-// Test AI connection
-async function testAIConnection() {
-    const baseUrl = document.getElementById('aiBaseUrl').value.trim();
-    const apiKey = document.getElementById('aiApiKey').value.trim();
-    const model = document.getElementById('aiModel').value.trim();
-
-    if (!baseUrl || !apiKey) {
-        showNotification('请先填写API配置', 'warning');
-        return;
-    }
-
-    const statusDiv = document.getElementById('connectionStatus');
-    const testBtn = document.getElementById('testConnectionBtn');
-
-    testBtn.disabled = true;
-    testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 测试中...';
-    statusDiv.className = 'connection-status';
-    statusDiv.style.display = 'none';
-
-    try {
-        const result = await apiCall('/ai/config/test', 'POST', { baseUrl, apiKey, model });
-
-        if (result.success) {
-            statusDiv.className = 'connection-status success';
-            statusDiv.innerHTML = '<i class="fas fa-check-circle"></i> 连接成功';
-        } else {
-            statusDiv.className = 'connection-status error';
-            statusDiv.innerHTML = `<i class="fas fa-times-circle"></i> ${result.message}`;
-        }
-    } catch (error) {
-        statusDiv.className = 'connection-status error';
-        statusDiv.innerHTML = `<i class="fas fa-times-circle"></i> ${error.message || '连接失败'}`;
-    } finally {
-        testBtn.disabled = false;
-        testBtn.innerHTML = '<i class="fas fa-plug"></i> 测试连接';
-    }
-}
-
-// AI Event Listeners
-document.getElementById('newChatBtn')?.addEventListener('click', createNewConversation);
-document.getElementById('deleteChatBtn')?.addEventListener('click', deleteCurrentConversation);
-
-document.getElementById('aiSendBtn')?.addEventListener('click', () => {
-    const input = document.getElementById('aiInput');
-    sendMessage(input.value);
-});
-
-document.getElementById('aiInput')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage(e.target.value);
-    }
-});
-
-// Auto-resize textarea
-document.getElementById('aiInput')?.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-});
-
-// Tab switching - sidebar buttons
-document.querySelectorAll('.ai-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchAITab(btn.dataset.tab));
-});
-
-// Tab switching - mobile buttons
-document.querySelectorAll('.ai-mobile-tab').forEach(btn => {
-    btn.addEventListener('click', () => switchAITab(btn.dataset.tab));
-});
-
-// Quick actions
-document.querySelectorAll('.ai-quick-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const prompt = btn.dataset.prompt;
-        sendMessage(prompt);
-    });
-});
-
-// Example chips for quick create
-document.querySelectorAll('.example-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-        const example = chip.dataset.example;
-        document.getElementById('quickCreateInput').value = example;
-    });
-});
-
-// Quick create
-document.getElementById('parseBtn')?.addEventListener('click', parseQuickCreate);
-document.getElementById('directCreateBtn')?.addEventListener('click', directCreate);
-document.getElementById('cancelParseBtn')?.addEventListener('click', () => {
-    // Reset to empty state
-    const emptyState = document.getElementById('parseEmptyState');
-    const parseContent = document.getElementById('parseContent');
-    const resultDiv = document.getElementById('parseResult');
-
-    if (emptyState) emptyState.style.display = 'flex';
-    if (parseContent) parseContent.style.display = 'none';
-    resultDiv.classList.remove('has-result');
-    AIState.parsedData = null;
-});
-document.getElementById('confirmCreateBtn')?.addEventListener('click', confirmQuickCreate);
-
-// Auto-create mode: Enter key triggers direct create
-document.getElementById('quickCreateInput')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && isAutoCreateMode()) {
-        e.preventDefault();
-        directCreate();
-    }
-});
-
-// Save auto-create mode preference to localStorage
-document.getElementById('autoCreateMode')?.addEventListener('change', (e) => {
-    localStorage.setItem('aiAutoCreateMode', e.target.checked);
-});
-
-// Restore auto-create mode preference on page load
-const savedAutoCreateMode = localStorage.getItem('aiAutoCreateMode');
-if (savedAutoCreateMode === 'true') {
-    const toggle = document.getElementById('autoCreateMode');
-    if (toggle) toggle.checked = true;
-}
-
-// Settings
-document.getElementById('saveAiConfigBtn')?.addEventListener('click', saveAIConfig);
-document.getElementById('testConnectionBtn')?.addEventListener('click', testAIConnection);
-document.getElementById('toggleApiKey')?.addEventListener('click', () => {
-    const input = document.getElementById('aiApiKey');
-    const icon = document.getElementById('toggleApiKey').querySelector('i');
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fas fa-eye-slash';
-    } else {
-        input.type = 'password';
-        icon.className = 'fas fa-eye';
-    }
-});
-
-// Load AI data when page is AI
-function initAIPage() {
-    loadAIConfig();
-    loadConversations();
-    bindQuickActions();
-}

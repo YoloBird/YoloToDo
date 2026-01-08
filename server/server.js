@@ -8,8 +8,10 @@ const { initDataFiles, backupData } = require('./utils/db');
 const authRoutes = require('./routes/auth');
 const notesRoutes = require('./routes/notes');
 const ideasRoutes = require('./routes/ideas');
-const aiRoutes = require('./routes/ai');
+const diariesRoutes = require('./routes/diaries');
+const goalsRoutes = require('./routes/goals');
 const { router: remindersRouter, startReminderScheduler } = require('./routes/reminders');
+const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,7 +30,8 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/notes', notesRoutes);
 app.use('/api/ideas', ideasRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/diaries', diariesRoutes);
+app.use('/api/goals', goalsRoutes);
 app.use('/api/reminders', remindersRouter);
 
 // ==================== 前端页面 ====================
@@ -39,6 +42,10 @@ app.get('/', (req, res) => {
 app.get('/app', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/app.html'));
 });
+
+// ==================== 错误处理 ====================
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // ==================== 启动提醒调度器 ====================
 startReminderScheduler();
